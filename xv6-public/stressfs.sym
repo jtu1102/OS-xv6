@@ -24,6 +24,7 @@
 000003ab read
 000003e3 unlink
 0000038b fork
+00000433 myfunction
 0000041b sbrk
 0000042b uptime
 00000b54 __bss_start

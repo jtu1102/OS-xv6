@@ -42,6 +42,7 @@
 00000e73 unlink
 00000170 panic
 00000e1b fork
+00000ec3 myfunction
 00000eab sbrk
 00000ebb uptime
 000019d2 __bss_start

@@ -2,6 +2,7 @@
 #include "stat.h"
 #include "user.h"
 
+// test for prac syscall
 int
 main(int argc, char *argv[])
 {

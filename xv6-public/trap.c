@@ -8,20 +8,21 @@
 #include "traps.h"
 #include "spinlock.h"
 
-// Interrupt descriptor table (shared by all CPUs).
+// Interrupt descriptor table (shared by all CPUs). IDT
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
 void
-tvinit(void)
+tvinit(void) // initialize trap vector
 {
   int i;
 
   for(i = 0; i < 256; i++)
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
+  SETGATE(idt[T_SAMPLE128], 1, SEG_KCODE<<3, vectors[T_SAMPLE128], DPL_USER);
 
   initlock(&tickslock, "time");
 }
@@ -36,7 +37,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-  if(tf->trapno == T_SYSCALL){
+  if(tf->trapno == T_SYSCALL){ //그래서... tf가 언제 초기화 되는 거지..
     if(myproc()->killed)
       exit();
     myproc()->tf = tf;
@@ -76,6 +77,11 @@ trap(struct trapframe *tf)
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
+    break;
+  
+  case T_SAMPLE128:
+    cprintf("user interrupt 128 called!\n");
+    exit();
     break;
 
   //PAGEBREAK: 13
