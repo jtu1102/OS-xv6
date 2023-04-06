@@ -39,7 +39,7 @@ struct proc {
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
   char *kstack;                // Bottom of kernel stack for this process
-  enum procstate state;        // Process state
+  enum procstate state;        // Process state // UNUSED로 초기화됨
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall
@@ -49,6 +49,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  int lev;                     // queue level (0~2)
+  uint tq;                     // time quantum
+  int priority;                // process priority (for L2 queue)
 };
 
 // Process memory is laid out contiguously, low addresses first:

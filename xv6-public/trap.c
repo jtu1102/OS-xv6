@@ -52,6 +52,8 @@ trap(struct trapframe *tf)
     if(cpuid() == 0){ // cpu id가 0인게 무슨 의미지?? 첫번째 cpu일때를 의미하는 듯. 근데 어차피 우린 cpu한개로 만드니까.. 항상 0!
       acquire(&tickslock);
       ticks++;
+      if (myproc() && myproc()->state == RUNNING)
+        myproc()->tq++; // 현재 프로세스의 time quantum 1 증가
       wakeup(&ticks);
       release(&tickslock);
     }

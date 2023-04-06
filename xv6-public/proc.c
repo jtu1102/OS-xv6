@@ -10,7 +10,7 @@
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
-} ptable;
+} ptable; // 전역변수로 ptable 초기화.
 
 static struct proc *initproc;
 
@@ -111,6 +111,10 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  p->lev = 0;
+  p->tq = 0;
+  p->priority = 3;
 
   return p;
 }

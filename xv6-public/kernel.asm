@@ -11683,7 +11683,7 @@ rcr2(void)
 80105b61:	0f 85 1c fe ff ff    	jne    80105983 <trap+0x53>
 80105b67:	e9 34 fe ff ff       	jmp    801059a0 <trap+0x70>
 80105b6c:	8d 74 26 00          	lea    0x0(%esi,%eiz,1),%esi
-    if(cpuid() == 0){
+    if(cpuid() == 0){ // cpu id가 0인게 무슨 의미지?? 첫번째 cpu일때를 의미하는 듯. 근데 어차피 우린 cpu한개로 만드니까.. 항상 0!
 80105b70:	e8 db dd ff ff       	call   80103950 <cpuid>
 80105b75:	85 c0                	test   %eax,%eax
 80105b77:	0f 85 f8 fd ff ff    	jne    80105975 <trap+0x45>
