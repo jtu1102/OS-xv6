@@ -11462,7 +11462,7 @@ trap(struct trapframe *tf)
 80105935:	53                   	push   %ebx
 80105936:	83 ec 1c             	sub    $0x1c,%esp
 80105939:	8b 5d 08             	mov    0x8(%ebp),%ebx
-  if(tf->trapno == T_SYSCALL){ //그래서... tf가 언제 초기화 되는 거지..
+  if(tf->trapno == T_SYSCALL){
 8010593c:	8b 43 30             	mov    0x30(%ebx),%eax
 8010593f:	83 f8 40             	cmp    $0x40,%eax
 80105942:	0f 84 a8 01 00 00    	je     80105af0 <trap+0x1c0>
@@ -11551,8 +11551,8 @@ trap(struct trapframe *tf)
 801059f7:	83 ec 0c             	sub    $0xc,%esp
 801059fa:	68 e2 79 10 80       	push   $0x801079e2
 801059ff:	e8 9c ac ff ff       	call   801006a0 <cprintf>
-    exit();
-80105a04:	e8 87 e3 ff ff       	call   80103d90 <exit>
+    lapiceoi();
+80105a04:	e8 07 cf ff ff       	call   80102910 <lapiceoi>
     break;
 80105a09:	83 c4 10             	add    $0x10,%esp
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)

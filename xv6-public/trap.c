@@ -37,7 +37,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-  if(tf->trapno == T_SYSCALL){ //그래서... tf가 언제 초기화 되는 거지..
+  if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
     myproc()->tf = tf;
@@ -49,7 +49,7 @@ trap(struct trapframe *tf)
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
-    if(cpuid() == 0){
+    if(cpuid() == 0){ // cpu id가 0인게 무슨 의미지?? 첫번째 cpu일때를 의미하는 듯. 근데 어차피 우린 cpu한개로 만드니까.. 항상 0!
       acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
@@ -81,7 +81,7 @@ trap(struct trapframe *tf)
   
   case T_SAMPLE128:
     cprintf("user interrupt 128 called!\n");
-    exit();
+    lapiceoi();
     break;
 
   //PAGEBREAK: 13
