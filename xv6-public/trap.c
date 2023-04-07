@@ -111,10 +111,17 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
+     tf->trapno == T_IRQ0+IRQ_TIMER) 
+     // todo: 각 큐 레벨 별로 tq 다 썼는지 확인해서 yield
+     // L2 큐에 대해서는 priority 값을 하나 감소시켜 주어야 함 (0이면 유지)
     yield();
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
+  // todo: priority boosting
+  // lev=0, priority=3으로 재설정
+  // 큐 순서를 유지하되 현재 레벨이 높은 순서대로
+  // 큐 다시 만들어주어야 함..!
+  // priority boosting 하고 나서 yield 해 주면 스케줄러에서 그 순서대로 다시 스케줄링 해 주게 되겠다!
 }
