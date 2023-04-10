@@ -6,11 +6,18 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "queue.h"
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable; // 전역변수로 ptable 초기화.
+
+struct {
+  struct Queue l0;
+  struct Queue l1;
+  struct Queue l2;
+} mlfq;
 
 static struct proc *initproc;
 
@@ -23,6 +30,11 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
+  cprintf("여기 들어오긴 하니...........????????\n");
+  initQueue(&mlfq.l0);
+  initQueue(&mlfq.l1);
+  initQueue(&mlfq.l2);
+  cprintf("init queue.......????????\n");
   initlock(&ptable.lock, "ptable");
 }
 
@@ -83,11 +95,17 @@ allocproc(void)
       goto found;
 
   release(&ptable.lock);
-  return 0;
+  return 0; // 프로세스 생성 공간이 부족할 경우 0을 리턴하고 fork 리턴값이 -1이 됨.
 
 found:
+  cprintf("allocproc?????\n");
   p->state = EMBRYO;
   p->pid = nextpid++;
+
+  p->lev = 0;
+  p->tq = 0;
+  p->priority = 3;
+  enqueue(&mlfq.l0, p); // push process to (L0) queue
 
   release(&ptable.lock);
 
@@ -111,10 +129,6 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
-  p->lev = 0;
-  p->tq = 0;
-  p->priority = 3;
 
   return p;
 }
@@ -328,34 +342,101 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
+  struct Queue tmp;
   c->proc = 0;
   
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
     // Loop over process table looking for process to run.
+    // MLFQ
+    /* schedule process in L0 */
+    // 각 프로세스 level 변경은 yield()에서 이루어짐
+    initQueue(&tmp);
+
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+    while(!isEmpty(&mlfq.l0)){ // empty가 아니라 RUNNABLE한 프로세스의 존재 여부를 확인해야 함....
+      p = dequeue(&mlfq.l0);
+      if(p->state == RUNNABLE){ // RUNNABLE한 프로세스인 경우 switch
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+        cprintf("[L0] [pid: %d] lets go~\n", p->pid);
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+        if(p->lev == 1) // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
+          enqueue(&mlfq.l1, p);
+        else if(p->lev == 0 && p->state != UNUSED) // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
+          enqueue(&tmp, p);
+        c->proc = 0;
+      }
+      else // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
+        if(p->state != UNUSED)
+          enqueue(&tmp, p); // 아직 RUNNABLE로 전환될 여지가 남아 있을 경우, l0큐에 남겨두기 위해 임시저장
+    }
+    while(!isEmpty(&tmp)) // 임시 저장해 두었던 프로세스 L0로 복원 (case: UNUSED 이외의 RUNNABLE로 전환될 여지가 남아 있거나 ZOMBIE 상태의 프로세스인 경우)
+      enqueue(&mlfq.l0, dequeue(&tmp));
+    
+    /* schedule process in L1 */
+    int l1_size = mlfq.l1.count;
+    int is_l1_have_runnable = 0;
+    while(l1_size--){ // 가장 앞에 있는 RUNNABLE한 프로세스 찾기
+      p = dequeue(&mlfq.l1);
+      if(p->state == RUNNABLE){
+        is_l1_have_runnable = 1;
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+        cprintf("[L1] [pid: %d] lets go~\n", p->pid);
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+        if(p->lev == 2) // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
+          enqueue(&mlfq.l2, p);
+        else if(p->lev == 1 && p->state != UNUSED) // tq이 남아 있을 경우 l1 큐에 그대로 남겨 둠
+          enqueue(&mlfq.l1, p);
+        
+        c->proc = 0;
+        break;
+      }
+      else if(p->state != UNUSED)
+        enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
+    }
+    /* schedule process in L2 */
+    // L1큐에 실행할 프로세스가 없는 경우
+    // L2큐를 순회하며 실행할 프로세스 고르기
+    // 종료된 프로세스를 정리 해 주지 않으면.. 최악의 경우 l2 큐가 넘칠 수도 있음
+    int priority_min = 4; // max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
+    struct proc *now;
+    if(!is_l1_have_runnable){
+      p = NULL;
+      while(!isEmpty(&mlfq.l2)){ // L2의 프로세스 중 우선순위가 높고 L2에 먼저 들어온 프로세스 찾기
+        now = dequeue(&mlfq.l2);
+        if(now->state == RUNNABLE && now->priority < priority_min){
+          p = now;
+          priority_min = p->priority;
+        }
+        enqueue(&tmp, now); // L2 순서 그대로 tmp에 옮겨놓기
+      }
+      if(p){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면!
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+        cprintf("[L2] [pid: %d, priority: %d] lets go~\n", p->pid, p->priority);
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+        
+        c->proc = 0;
+      }
+      while(!isEmpty(&tmp)){ // l2 순서 복원하여 다시 넣기, UNUSED된 프로세스는 정리
+        now = dequeue(&tmp);
+        if(now->state != UNUSED)
+          enqueue(&mlfq.l2, now);
+      }
     }
     release(&ptable.lock);
-
   }
 }
 
@@ -391,6 +472,13 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE; //실행 중인 프로세스를 RUNNABLE 상태로 전환시킴
+  if(myproc()->lev != 2)
+    myproc()->lev++;
+  else if(myproc()->lev == 2){ // L2의 큐가 tq을 모두 소비한 경우
+    if(myproc()->priority > 0)
+      myproc()->priority--;
+    myproc()->tq = 0;
+  }
   sched(); // switch to scheduler
   release(&ptable.lock);
 }

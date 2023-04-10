@@ -9,6 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct Queue;
 
 // bio.c
 void            binit(void);
@@ -187,7 +188,13 @@ int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
 //prac_syscall.c
-int		myfunction(char*);
+int		        myfunction(char*);
+
+//queue.c
+void            initQueue(struct Queue*);
+int             isEmpty(struct Queue*);
+void            enqueue(struct Queue*, struct proc*);
+struct proc*    dequeue(struct Queue*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

@@ -1,59 +1,64 @@
-#define NULL 0
+#include "types.h"
+#include "defs.h"
+#include "param.h"
+#include "memlayout.h"
+#include "mmu.h"
+#include "x86.h"
+#include "proc.h"
+#include "spinlock.h"
+#include "queue.h"
+// #define DEBUG
 
-typedef struct node {
-    struct proc *p;
-    struct node *next;
-} node;
-
-typedef struct Queue
-{
-    node *front;
-    node *rear;
-    int count;
-} Queue;
 
 void
-initQueue(Queue *queue)
+initQueue(struct Queue *queue)
 {
-    queue->front = queue->rear = NULL; 
+    queue->front = 0;
+    queue->rear = 0;
     queue->count = 0;
+    for(int i = 0; i < NPROC + 1; i++){
+        queue->q[i] = NULL; // pointer 모두 NULL로 초기화
+    }
 }
 
 int
-isEmpty(Queue *queue)
+isEmpty(struct Queue *queue)
 {
-    return queue->count == 0;
+    if (queue->front == queue->rear)
+        return 1;
+    return 0;
+}
+
+int
+isFull(struct Queue *queue)
+{
+    if ((queue->rear + 1) % (NPROC + 1) == queue->front)
+        return 1;
+    return 0;
 }
 
 void
-enqueue(Queue *queue, struct proc *p)
+enqueue(struct Queue *queue, struct proc *p)
 {
-    node *new = (node *)malloc(sizeof(node));
-    
-    new->p = p;
-    new->next = NULL;
-
-    if (isEmpty(queue))
-        queue->front = new;
-    else
-        queue->rear->next = new;
-    queue->rear = new;
+    queue->rear = (queue->rear + 1) % (NPROC + 1);
+    queue->q[queue->rear] = p;
     queue->count++;
+#ifdef DEBUG
+  cprintf("[%d] mlfq enqueue\n", p->pid);
+#endif
 }
 
 struct proc *
-dequeue(Queue *queue)
+dequeue(struct Queue *queue)
 {
-    struct proc *p;
-    node *ptr;
-
     if (isEmpty(queue)) // empty queue
         return NULL;
-    ptr = queue->front;
-    p = ptr->p;
-    queue->front = ptr->next;
-    free(ptr);
-    (queue->count)--;
+    queue->front = (queue->front + 1) % (NPROC + 1);
+    queue->count--;
 
-    return p;
+#ifdef DEBUG
+  cprintf("[%d] mlfq dequeue\n", queue->q[queue->front]->pid);
+#endif
+    
+    return queue->q[queue->front];
 }
