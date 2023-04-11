@@ -30,11 +30,9 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
-  cprintf("여기 들어오긴 하니...........????????\n");
   initQueue(&mlfq.l0);
   initQueue(&mlfq.l1);
   initQueue(&mlfq.l2);
-  cprintf("init queue.......????????\n");
   initlock(&ptable.lock, "ptable");
 }
 
@@ -98,7 +96,6 @@ allocproc(void)
   return 0; // 프로세스 생성 공간이 부족할 경우 0을 리턴하고 fork 리턴값이 -1이 됨.
 
 found:
-  cprintf("allocproc?????\n");
   p->state = EMBRYO;
   p->pid = nextpid++;
 
@@ -107,6 +104,7 @@ found:
   p->priority = 3;
   enqueue(&mlfq.l0, p); // push process to (L0) queue
 
+  cprintf("allocproc????? %d\n", p->pid);
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -348,21 +346,21 @@ scheduler(void)
   for(;;){
     // Enable interrupts on this processor.
     sti();
-    // Loop over process table looking for process to run.
+
     // MLFQ
+    
     /* schedule process in L0 */
     // 각 프로세스 level 변경은 yield()에서 이루어짐
-    initQueue(&tmp);
 
+    initQueue(&tmp); // empty가 아니라 RUNNABLE한 프로세스의 존재 여부를 확인해야 함. UNUSED, RUNNABLE 이외의 프로세스를 모을 임시 큐
     acquire(&ptable.lock);
-    while(!isEmpty(&mlfq.l0)){ // empty가 아니라 RUNNABLE한 프로세스의 존재 여부를 확인해야 함....
+    while(!isEmpty(&mlfq.l0)){
       p = dequeue(&mlfq.l0);
       if(p->state == RUNNABLE){ // RUNNABLE한 프로세스인 경우 switch
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
 
-        cprintf("[L0] [pid: %d] lets go~\n", p->pid);
         swtch(&(c->scheduler), p->context);
         switchkvm();
         if(p->lev == 1) // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
@@ -389,7 +387,6 @@ scheduler(void)
         switchuvm(p);
         p->state = RUNNING;
 
-        cprintf("[L1] [pid: %d] lets go~\n", p->pid);
         swtch(&(c->scheduler), p->context);
         switchkvm();
         if(p->lev == 2) // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
@@ -424,7 +421,6 @@ scheduler(void)
         switchuvm(p);
         p->state = RUNNING;
 
-        cprintf("[L2] [pid: %d, priority: %d] lets go~\n", p->pid, p->priority);
         swtch(&(c->scheduler), p->context);
         switchkvm();
         
@@ -472,13 +468,6 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE; //실행 중인 프로세스를 RUNNABLE 상태로 전환시킴
-  if(myproc()->lev != 2)
-    myproc()->lev++;
-  else if(myproc()->lev == 2){ // L2의 큐가 tq을 모두 소비한 경우
-    if(myproc()->priority > 0)
-      myproc()->priority--;
-    myproc()->tq = 0;
-  }
   sched(); // switch to scheduler
   release(&ptable.lock);
 }
