@@ -121,16 +121,14 @@ trap(struct trapframe *tf)
         myproc()->priority--;
     }
     myproc()->tq = 0;
-    cprintf("[pid: %d] go to lev%d, priority: %d\n", myproc()->pid, myproc()->lev, myproc()->priority);
     yield();
   }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
-  // todo: priority boosting
-  // lev=0, priority=3으로 재설정
-  // 큐 순서를 유지하되 현재 레벨이 높은 순서대로
-  // 큐 다시 만들어주어야 함..!
-  // priority boosting 하고 나서 yield 해 주면 스케줄러에서 그 순서대로 다시 스케줄링 해 주게 되겠다!
+  acquire(&tickslock);
+  if(!(ticks % 100))
+    priorityBoosting();
+  release(&tickslock);
 }

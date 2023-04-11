@@ -22,6 +22,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+extern uint ticks;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -350,8 +351,6 @@ scheduler(void)
     // MLFQ
     
     /* schedule process in L0 */
-    // 각 프로세스 level 변경은 yield()에서 이루어짐
-
     initQueue(&tmp); // empty가 아니라 RUNNABLE한 프로세스의 존재 여부를 확인해야 함. UNUSED, RUNNABLE 이외의 프로세스를 모을 임시 큐
     acquire(&ptable.lock);
     while(!isEmpty(&mlfq.l0)){
@@ -403,7 +402,7 @@ scheduler(void)
     /* schedule process in L2 */
     // L1큐에 실행할 프로세스가 없는 경우
     // L2큐를 순회하며 실행할 프로세스 고르기
-    // 종료된 프로세스를 정리 해 주지 않으면.. 최악의 경우 l2 큐가 넘칠 수도 있음
+    // 종료된 프로세스를 정리 해 주지 않으면.. 최악의 경우 l2 큐가 넘칠 수도 있으므로 tmp로 정리
     int priority_min = 4; // max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
     struct proc *now;
     if(!is_l1_have_runnable){
@@ -612,4 +611,31 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+// todo: priority boosting
+// lev=0, priority=3으로 재설정
+// 큐 순서를 유지하되 현재 레벨이 높은 순서대로
+// 큐 다시 만들어주어야 함..!
+// priority boosting 하고 나서 yield 해 주면 스케줄러에서 그 순서대로 다시 스케줄링 해 주게 되겠다!
+void
+priorityBoosting(void)
+{
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  while(!isEmpty(&mlfq.l1)){
+    p = dequeue(&mlfq.l1);
+    p->lev = 0;
+    p->priority = 3;
+    enqueue(&mlfq.l0, p);
+  }
+  while(!isEmpty(&mlfq.l2)){
+    p = dequeue(&mlfq.l2);
+    p->lev = 0;
+    p->priority = 3;
+    enqueue(&mlfq.l0, p);
+  }
+  release(&ptable.lock);
+  ticks = 0;
 }

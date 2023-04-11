@@ -5,9 +5,9 @@
 int
 main(int argc, char *argv[])
 {
-    for(;;){
-        sleep(1);
+    for(int i = 0;i < 1000; i++){
         printf(1, "use... tick...\n");
     }
+    printf(1, "im done!\n");
     exit();
 }
