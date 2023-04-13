@@ -111,7 +111,8 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER){
+     tf->trapno == T_IRQ0+IRQ_TIMER &&
+     myproc()->locked == 0){
      if(myproc()->tq == myproc()->lev * 2 + 4){ // 큐가 tq을 모두 소비한 경우
         if(myproc()->lev != 2)
           myproc()->lev++;
@@ -122,7 +123,16 @@ trap(struct trapframe *tf)
         myproc()->tq = 0;
       }
       if(!(ticks % 100))
-        priorityBoosting(); // priority boosting 후에 scheduler로 돌아가야 할 것 같
+        priorityBoosting();
+      yield();
+  }
+
+  if(myproc() && myproc()->state == RUNNING &&
+     tf->trapno == T_IRQ0+IRQ_TIMER &&
+     myproc()->locked == 1 &&
+     !(ticks % 100)){
+      schedulerUnlock(PASSWORD);
+      priorityBoosting();
       yield();
   }
 

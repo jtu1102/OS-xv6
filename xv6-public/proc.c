@@ -7,8 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "queue.h"
-#define DEBUG
-#define PASSWORD 2019076880
+
 
 struct {
   struct spinlock lock;
@@ -369,6 +368,7 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
+        // todo: unlock으로 돌아온 경우 detect
         if(!ticks) // priority boosting이 발생한 경우
           break;
 
@@ -382,13 +382,13 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else if(p->lev == 0 && p->state != UNUSED){ // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
+        else if(p->lev == 0 && p->state != UNUSED && p->state != ZOMBIE){ // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
           enqueue(&mlfq.l0, p);
         }
       }
       else{ // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
         dequeue(&mlfq.l0);
-        if(p->state != UNUSED){
+        if(p->state != UNUSED && p->state != ZOMBIE){
           enqueue(&mlfq.l0, p); // 맨 뒤로 보냄
         }
       }
@@ -412,7 +412,9 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
-        if(!ticks) // priority boosting이 발생한 경우
+        if(top(&mlfq.l0) == p)
+          cprintf("unlocked!\n");
+        if(!ticks || top(&mlfq.l0) == p) // priority boosting이 발생한 경우 or unlock 후 돌아온 경우
           break;
 
         dequeue(&mlfq.l1);
@@ -425,20 +427,21 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else if(p->lev == 1 && p->state != UNUSED) // tq이 남아 있을 경우 l1 큐에 그대로 남겨 둠
+        else if(p->lev == 1 && p->state != UNUSED && p->state != ZOMBIE) // tq이 남아 있을 경우 l1 큐에 그대로 남겨 둠
           enqueue(&mlfq.l1, p);
         
         break;
       }
       else{
         dequeue(&mlfq.l1);
-        if(p->state != UNUSED)
+        if(p->state != UNUSED && p->state != ZOMBIE)
           enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
       }
     }
     /* schedule process in L2 */
     // L1큐에 실행할 프로세스가 없는 경우
     // L2큐를 순회하며 실행할 프로세스 고르기
+    // UNUSED 된 프로세스는 priority boosting에서 처리되므로, lev을 확인해서 switching 해 주어야 함
     if(!runnable_flag){
       p = NULL;
       priority_min = 4; // max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
@@ -450,7 +453,7 @@ scheduler(void)
           priority_min = p->priority;
         }
       }
-      if(p){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면!
+      if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
@@ -667,7 +670,7 @@ priorityBoosting(void)
   size = mlfq.l0.count;
   while(size--){
     p = dequeue(&mlfq.l0);
-    if(p->state != UNUSED){
+    if(p->state != UNUSED && p->state != ZOMBIE){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -676,7 +679,7 @@ priorityBoosting(void)
   }
   while(!isEmpty(&mlfq.l1)){
     p = dequeue(&mlfq.l1);
-    if(p->state != UNUSED){
+    if(p->state != UNUSED && p->state != ZOMBIE){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -685,7 +688,7 @@ priorityBoosting(void)
   }
   while(!isEmpty(&mlfq.l2)){
     p = dequeue(&mlfq.l2);
-    if(p->state != UNUSED){
+    if(p->state != UNUSED && p->state != ZOMBIE && p->state != EMBRYO){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -722,21 +725,70 @@ setPriority(int pid, int priority)
   panic("setPriority: Wrong pid!");
 }
 
-// void
-// schedulerLock(int password)
-// {
-//   if(password == PASSWORD){
-//     myproc()->locked = 1;
-//     acquire(&tickslock);
-//     ticks = 0;
-//     release(&tickslock);
-//   }
-//   else
-//     panic("SchedulerLock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
-// }
+void
+schedulerLock(int password)
+{
+  struct proc *p;
+  struct Queue tmp;
 
-// void
-// schedulerUnlock(int password)
-// {
+  if(password == PASSWORD){
+    if(myproc()->locked)
+      return;
+    myproc()->locked = 1;
+  #ifdef DEBUG
+    cprintf("[%d] lock!\n", myproc()->pid);
+  #endif
+    // mlfq에서 빼기
+    // RUNNING 상태이므로 자기 레벨의 큐 가장 앞에 있음
+    if(myproc()->lev == 0)
+      dequeue(&mlfq.l0);
+    else if(myproc()->lev == 1)
+      dequeue(&mlfq.l1);
+    else if(myproc()->lev == 2){
+      while(!isEmpty(&mlfq.l2)){
+        p = dequeue(&mlfq.l2);
+        if(p != myproc())
+          enqueue(&tmp, p);
+      }
+      while(!isEmpty(&tmp))
+        enqueue(&mlfq.l2, dequeue(&tmp));
+    }
+  #ifdef DEBUG
+    cprintf("Removed %d\n", myproc()->pid);
+    cprintf("0:");printQueue(&mlfq.l0);
+    cprintf("1:");printQueue(&mlfq.l1);
+    cprintf("2:");printQueue(&mlfq.l2);
+  #endif
+    acquire(&tickslock);
+    ticks = 0;
+    release(&tickslock);
+  }
+  else{
+    cprintf("SchedulerLock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
+    exit();
+  }
+}
 
-// }
+void
+schedulerUnlock(int password)
+{
+  if(password == PASSWORD){
+    if(!myproc()->locked) // 이미 unlock 되어 있는 경우 skip
+      return;
+    myproc()->lev = 0;
+    myproc()->priority = 3;
+    myproc()->tq = 0;
+    push(&mlfq.l0, myproc());
+  #ifdef DEBUG
+    cprintf("[%d] unlock!\n", myproc()->pid);
+    printQueue(&mlfq.l0);
+    printQueue(&mlfq.l1);
+    printQueue(&mlfq.l2);
+  #endif
+    myproc()->locked = 0;
+  }
+  else{
+    cprintf("SchedulerLock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
+    exit();
+  }
+}

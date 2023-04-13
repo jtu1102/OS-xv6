@@ -39,6 +39,8 @@ isFull(struct Queue *queue)
 void
 enqueue(struct Queue *queue, struct proc *p)
 {
+    if(isFull(queue))
+        return;
     queue->rear = (queue->rear + 1) % (NPROC + 1);
     queue->q[queue->rear] = p;
     queue->count++;
@@ -64,13 +66,26 @@ top(struct Queue *queue)
 }
 
 void
+push(struct Queue *queue, struct proc *p)
+{
+    if(isFull(queue))
+        return;
+    queue->q[queue->front] = p;
+    if(queue->front > 0)
+        queue->front--;
+    else
+        queue->front = NPROC;
+    queue->count++;
+}
+
+void
 printQueue(struct Queue *queue)
 {
     if(!isEmpty(queue)){
         cprintf("queue: ");
         for(int i = (queue->front + 1) % (NPROC + 1); i <= queue->rear; i++){
             i %= (NPROC + 1);
-            cprintf("%d ", queue->q[i]->pid);
+            cprintf("%d(%d) ", queue->q[i]->pid, queue->q[i]->state);
         }
     }
     cprintf("\n");

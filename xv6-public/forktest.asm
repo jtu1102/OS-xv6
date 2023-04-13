@@ -52,11 +52,11 @@ main(void)
 {
   46:	83 ec 10             	sub    $0x10,%esp
   write(fd, s, strlen(s));
-  49:	68 34 04 00 00       	push   $0x434
+  49:	68 44 04 00 00       	push   $0x444
   4e:	e8 5d 01 00 00       	call   1b0 <strlen>
   53:	83 c4 0c             	add    $0xc,%esp
   56:	50                   	push   %eax
-  57:	68 34 04 00 00       	push   $0x434
+  57:	68 44 04 00 00       	push   $0x444
   5c:	6a 01                	push   $0x1
   5e:	e8 30 03 00 00       	call   393 <write>
   63:	83 c4 10             	add    $0x10,%esp
@@ -91,11 +91,11 @@ main(void)
   a6:	75 49                	jne    f1 <forktest+0xb1>
   write(fd, s, strlen(s));
   a8:	83 ec 0c             	sub    $0xc,%esp
-  ab:	68 66 04 00 00       	push   $0x466
+  ab:	68 76 04 00 00       	push   $0x476
   b0:	e8 fb 00 00 00       	call   1b0 <strlen>
   b5:	83 c4 0c             	add    $0xc,%esp
   b8:	50                   	push   %eax
-  b9:	68 66 04 00 00       	push   $0x466
+  b9:	68 76 04 00 00       	push   $0x476
   be:	6a 01                	push   $0x1
   c0:	e8 ce 02 00 00       	call   393 <write>
 }
@@ -106,11 +106,11 @@ main(void)
   ca:	e8 a4 02 00 00       	call   373 <exit>
   write(fd, s, strlen(s));
   cf:	83 ec 0c             	sub    $0xc,%esp
-  d2:	68 3f 04 00 00       	push   $0x43f
+  d2:	68 4f 04 00 00       	push   $0x44f
   d7:	e8 d4 00 00 00       	call   1b0 <strlen>
   dc:	83 c4 0c             	add    $0xc,%esp
   df:	50                   	push   %eax
-  e0:	68 3f 04 00 00       	push   $0x43f
+  e0:	68 4f 04 00 00       	push   $0x44f
   e5:	6a 01                	push   $0x1
   e7:	e8 a7 02 00 00       	call   393 <write>
       exit();
@@ -118,7 +118,7 @@ main(void)
     printf(1, "wait got too many\n");
   f1:	52                   	push   %edx
   f2:	52                   	push   %edx
-  f3:	68 53 04 00 00       	push   $0x453
+  f3:	68 63 04 00 00       	push   $0x463
   f8:	6a 01                	push   $0x1
   fa:	e8 11 ff ff ff       	call   10 <printf>
     exit();
@@ -126,7 +126,7 @@ main(void)
     printf(1, "fork claimed to work N times!\n", N);
  104:	50                   	push   %eax
  105:	68 e8 03 00 00       	push   $0x3e8
- 10a:	68 74 04 00 00       	push   $0x474
+ 10a:	68 84 04 00 00       	push   $0x484
  10f:	6a 01                	push   $0x1
  111:	e8 fa fe ff ff       	call   10 <printf>
     exit();
@@ -679,6 +679,18 @@ SYSCALL(getLevel)
  42a:	c3                   	ret    
 
 0000042b <setPriority>:
+SYSCALL(setPriority)
  42b:	b8 19 00 00 00       	mov    $0x19,%eax
  430:	cd 40                	int    $0x40
  432:	c3                   	ret    
+
+00000433 <schedulerLock>:
+SYSCALL(schedulerLock)
+ 433:	b8 1a 00 00 00       	mov    $0x1a,%eax
+ 438:	cd 40                	int    $0x40
+ 43a:	c3                   	ret    
+
+0000043b <schedulerUnlock>:
+ 43b:	b8 1b 00 00 00       	mov    $0x1b,%eax
+ 440:	cd 40                	int    $0x40
+ 442:	c3                   	ret    

@@ -124,6 +124,8 @@ void            yield(void);
 void            priorityBoosting(void);
 int             getLevel(void);
 void            setPriority(int pid, int prioriry);
+void            schedulerLock(int password);
+void            schedulerUnlock(int password);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -199,7 +201,12 @@ int             isEmpty(struct Queue*);
 void            enqueue(struct Queue*, struct proc*);
 struct proc*    dequeue(struct Queue*);
 struct proc*    top(struct Queue*);
+void            push(struct Queue*, struct proc*);
 void            printQueue(struct Queue*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+#ifndef PASSWORD
+#define PASSWORD 2019076880
+#endif
+#define DEBUG
