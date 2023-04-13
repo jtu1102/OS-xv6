@@ -122,6 +122,8 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 void            priorityBoosting(void);
+int             getLevel(void);
+void            setPriority(int pid, int prioriry);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -196,6 +198,8 @@ void            initQueue(struct Queue*);
 int             isEmpty(struct Queue*);
 void            enqueue(struct Queue*, struct proc*);
 struct proc*    dequeue(struct Queue*);
+struct proc*    top(struct Queue*);
+void            printQueue(struct Queue*);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

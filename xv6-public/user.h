@@ -25,6 +25,8 @@ int sleep(int);
 int uptime(void);
 int myfunction(char*);
 void yield(void);
+int getLevel(void);
+int setPriority(int pid, int priority);
 
 // ulib.c
 int stat(const char*, struct stat*);

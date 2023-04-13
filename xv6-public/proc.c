@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "queue.h"
+#define DEBUG
 
 struct {
   struct spinlock lock;
@@ -105,7 +106,6 @@ found:
   p->priority = 3;
   enqueue(&mlfq.l0, p); // push process to (L0) queue
 
-  cprintf("allocproc????? %d\n", p->pid);
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -341,79 +341,109 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  struct Queue tmp;
-  c->proc = 0;
+  int runnable_flag = 0; // L0, L1큐에 RUNNABLE한 프로세스가 남아있는지 확인하는 플래그
+  int size; // L0, L1 큐 loop을 위한 size 변수
+  int priority_min = 4; // L2 큐 탐색을 위한 변수, max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
+  struct proc *now; // L2 큐 탐색을 위한 변수
   
+  c->proc = 0;
   for(;;){
     // Enable interrupts on this processor.
     sti();
+    acquire(&ptable.lock);
 
     // MLFQ
-    
     /* schedule process in L0 */
-    initQueue(&tmp); // empty가 아니라 RUNNABLE한 프로세스의 존재 여부를 확인해야 함. UNUSED, RUNNABLE 이외의 프로세스를 모을 임시 큐
-    acquire(&ptable.lock);
-    while(!isEmpty(&mlfq.l0)){
-      p = dequeue(&mlfq.l0);
+    runnable_flag = 0;
+    size = mlfq.l0.count;
+    while(size--){
+      p = top(&mlfq.l0);
       if(p->state == RUNNABLE){ // RUNNABLE한 프로세스인 경우 switch
+        runnable_flag = 1;
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
 
         swtch(&(c->scheduler), p->context);
         switchkvm();
-        if(p->lev == 1) // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
+        if(ticks == 0)
+          break;
+        dequeue(&mlfq.l0);
+        if(p->lev == 1){ // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
           enqueue(&mlfq.l1, p);
-        else if(p->lev == 0 && p->state != UNUSED) // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
-          enqueue(&tmp, p);
+          #ifdef DEBUG
+          cprintf("L0: Runned - %d\n", p->pid);
+          cprintf("0:");printQueue(&mlfq.l0);
+          cprintf("1:");printQueue(&mlfq.l1);
+          cprintf("2:");printQueue(&mlfq.l2);
+          #endif
+        }
+        else if(p->lev == 0 && p->state != UNUSED){ // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
+          enqueue(&mlfq.l0, p);
+        }
         c->proc = 0;
       }
-      else // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
-        if(p->state != UNUSED)
-          enqueue(&tmp, p); // 아직 RUNNABLE로 전환될 여지가 남아 있을 경우, l0큐에 남겨두기 위해 임시저장
+      else{ // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
+        dequeue(&mlfq.l0);
+        if(p->state != UNUSED){
+          enqueue(&mlfq.l0, p); // 맨 뒤로 보냄
+        }
+      }
     }
-    while(!isEmpty(&tmp)) // 임시 저장해 두었던 프로세스 L0로 복원 (case: UNUSED 이외의 RUNNABLE로 전환될 여지가 남아 있거나 ZOMBIE 상태의 프로세스인 경우)
-      enqueue(&mlfq.l0, dequeue(&tmp));
-    
+    if(runnable_flag){
+      release(&ptable.lock);
+      continue;
+    }
+
     /* schedule process in L1 */
-    int l1_size = mlfq.l1.count;
-    int is_l1_have_runnable = 0;
-    while(l1_size--){ // 가장 앞에 있는 RUNNABLE한 프로세스 찾기
-      p = dequeue(&mlfq.l1);
+    size = mlfq.l1.count;
+    runnable_flag = 0;
+    while(size--){ // 가장 앞에 있는 RUNNABLE한 프로세스 찾기
+      p = top(&mlfq.l1);
       if(p->state == RUNNABLE){
-        is_l1_have_runnable = 1;
+        runnable_flag = 1;
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;
 
         swtch(&(c->scheduler), p->context);
         switchkvm();
-        if(p->lev == 2) // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
+        if(ticks == 0)
+          break;
+        dequeue(&mlfq.l1);
+        if(p->lev == 2){ // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
           enqueue(&mlfq.l2, p);
+          #ifdef DEBUG
+          cprintf("L1: Runned - %d\n", p->pid);
+          cprintf("0:");printQueue(&mlfq.l0);
+          cprintf("1:");printQueue(&mlfq.l1);
+          cprintf("2:");printQueue(&mlfq.l2);
+          #endif
+        }
         else if(p->lev == 1 && p->state != UNUSED) // tq이 남아 있을 경우 l1 큐에 그대로 남겨 둠
           enqueue(&mlfq.l1, p);
         
         c->proc = 0;
         break;
       }
-      else if(p->state != UNUSED)
-        enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
+      else{
+        dequeue(&mlfq.l1);
+        if(p->state != UNUSED)
+          enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
+      }
     }
     /* schedule process in L2 */
     // L1큐에 실행할 프로세스가 없는 경우
     // L2큐를 순회하며 실행할 프로세스 고르기
-    // 종료된 프로세스를 정리 해 주지 않으면.. 최악의 경우 l2 큐가 넘칠 수도 있으므로 tmp로 정리
-    int priority_min = 4; // max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
-    struct proc *now;
-    if(!is_l1_have_runnable){
+    if(!runnable_flag){
       p = NULL;
-      while(!isEmpty(&mlfq.l2)){ // L2의 프로세스 중 우선순위가 높고 L2에 먼저 들어온 프로세스 찾기
-        now = dequeue(&mlfq.l2);
+      // L2의 프로세스 중 우선순위가 높고 L2에 먼저 들어온 프로세스 찾기
+      for(int i = (mlfq.l2.front + 1) % (NPROC + 1); i <= mlfq.l2.rear; i++){
+        now = mlfq.l2.q[i];
         if(now->state == RUNNABLE && now->priority < priority_min){
           p = now;
           priority_min = p->priority;
         }
-        enqueue(&tmp, now); // L2 순서 그대로 tmp에 옮겨놓기
       }
       if(p){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면!
         c->proc = p;
@@ -424,11 +454,6 @@ scheduler(void)
         switchkvm();
         
         c->proc = 0;
-      }
-      while(!isEmpty(&tmp)){ // l2 순서 복원하여 다시 넣기, UNUSED된 프로세스는 정리
-        now = dequeue(&tmp);
-        if(now->state != UNUSED)
-          enqueue(&mlfq.l2, now);
       }
     }
     release(&ptable.lock);
@@ -613,29 +638,66 @@ procdump(void)
   }
 }
 
-// todo: priority boosting
+// priority boosting
 // lev=0, priority=3으로 재설정
 // 큐 순서를 유지하되 현재 레벨이 높은 순서대로
-// 큐 다시 만들어주어야 함..!
-// priority boosting 하고 나서 yield 해 주면 스케줄러에서 그 순서대로 다시 스케줄링 해 주게 되겠다!
+// UNUSED 된 프로세스 정리
 void
 priorityBoosting(void)
 {
   struct proc *p;
+  int size = mlfq.l0.count;
 
   acquire(&ptable.lock);
+  while(size--){
+    p = dequeue(&mlfq.l0);
+    if(p->state != UNUSED){
+      p->lev = 0;
+      p->priority = 3;
+      enqueue(&mlfq.l0, p);
+    }
+  }
   while(!isEmpty(&mlfq.l1)){
     p = dequeue(&mlfq.l1);
-    p->lev = 0;
-    p->priority = 3;
-    enqueue(&mlfq.l0, p);
+    if(p->state != UNUSED){
+      p->lev = 0;
+      p->priority = 3;
+      enqueue(&mlfq.l0, p);
+    }
   }
   while(!isEmpty(&mlfq.l2)){
     p = dequeue(&mlfq.l2);
-    p->lev = 0;
-    p->priority = 3;
-    enqueue(&mlfq.l0, p);
+    if(p->state != UNUSED){
+      p->lev = 0;
+      p->priority = 3;
+      enqueue(&mlfq.l0, p);
+    }
   }
   release(&ptable.lock);
   ticks = 0;
+}
+
+// New system calls
+int
+getLevel(void)
+{
+  return myproc()->lev;
+}
+
+void
+setPriority(int pid, int priority)
+{
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      p->priority = priority;
+      release(&ptable.lock);
+      return;
+    }
+  }
+  // invalid pid
+  release(&ptable.lock);
+  panic("setPriority: Wrong pid!");
 }

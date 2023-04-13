@@ -111,24 +111,23 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER &&
-     myproc()->tq == myproc()->lev * 2 + 4){
-    
-    if(myproc()->lev != 2)
-      myproc()->lev++;
-    else if(myproc()->lev == 2){ // L2의 큐가 tq을 모두 소비한 경우
-      if(myproc()->priority > 0)
-        myproc()->priority--;
-    }
-    myproc()->tq = 0;
-    yield();
+     tf->trapno == T_IRQ0+IRQ_TIMER){
+     if(myproc()->tq == myproc()->lev * 2 + 4){ // 큐가 tq을 모두 소비한 경우
+        if(myproc()->lev != 2)
+          myproc()->lev++;
+        else if(myproc()->lev == 2){
+          if(myproc()->priority > 0)
+            myproc()->priority--;
+        }
+        myproc()->tq = 0;
+      }
+      yield();
   }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
-  acquire(&tickslock);
+
   if(!(ticks % 100))
     priorityBoosting();
-  release(&tickslock);
 }

@@ -96,3 +96,21 @@ sys_yield(void)
   yield();
   return 0;
 }
+
+int
+sys_getLevel(void)
+{
+  return getLevel();
+}
+
+int
+sys_setPriority(void)
+{
+  int pid;
+  int priority;
+
+  if(argint(0, &pid) < 0 || argint(1, &priority) < 0)
+    return -1;
+  setPriority(pid, priority);
+  return 0;
+}
