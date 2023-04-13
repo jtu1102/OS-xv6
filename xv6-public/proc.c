@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "queue.h"
 #define DEBUG
+#define PASSWORD 2019076880
 
 struct {
   struct spinlock lock;
@@ -104,6 +105,7 @@ found:
   p->lev = 0;
   p->tq = 0;
   p->priority = 3;
+  p->locked = 0;
   enqueue(&mlfq.l0, p); // push process to (L0) queue
 
   release(&ptable.lock);
@@ -367,6 +369,8 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
+        if(!ticks) // priority boosting이 발생한 경우
+          break;
 
         dequeue(&mlfq.l0);
         if(p->lev == 1){ // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
@@ -408,9 +412,10 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
+        if(!ticks) // priority boosting이 발생한 경우
+          break;
 
         dequeue(&mlfq.l1);
-
         if(p->lev == 2){ // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
           enqueue(&mlfq.l2, p);
           #ifdef DEBUG
@@ -657,6 +662,7 @@ priorityBoosting(void)
   struct proc *p;
   int size;
 
+  pushcli(); // disable timer interrupts
   acquire(&ptable.lock);
   size = mlfq.l0.count;
   while(size--){
@@ -688,6 +694,7 @@ priorityBoosting(void)
   }
   release(&ptable.lock);
   ticks = 0;
+  popcli(); // enable timer interrupts
 }
 
 // New system calls
@@ -714,3 +721,22 @@ setPriority(int pid, int priority)
   release(&ptable.lock);
   panic("setPriority: Wrong pid!");
 }
+
+// void
+// schedulerLock(int password)
+// {
+//   if(password == PASSWORD){
+//     myproc()->locked = 1;
+//     acquire(&tickslock);
+//     ticks = 0;
+//     release(&tickslock);
+//   }
+//   else
+//     panic("SchedulerLock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
+// }
+
+// void
+// schedulerUnlock(int password)
+// {
+
+// }

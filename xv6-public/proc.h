@@ -53,6 +53,7 @@ struct proc {
   int lev;                     // queue level (0~2)
   uint tq;                     // time quantum
   int priority;                // process priority (for L2 queue)
+  int locked;                  // has the process got lock?
 };
 
 // Process memory is laid out contiguously, low addresses first:

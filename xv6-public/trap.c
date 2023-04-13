@@ -121,6 +121,8 @@ trap(struct trapframe *tf)
         }
         myproc()->tq = 0;
       }
+      if(!(ticks % 100))
+        priorityBoosting(); // priority boosting 후에 scheduler로 돌아가야 할 것 같
       yield();
   }
 
@@ -128,6 +130,4 @@ trap(struct trapframe *tf)
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
 
-  if(!(ticks % 100))
-    priorityBoosting();
 }
