@@ -16,15 +16,6 @@ int create_child(int num_child) {
   return 1; // parent
 }
 
-void exit_child(int parent) {
-  if (parent)
-    while (wait() != -1);
-  else{
-    printf(1, "go exit: %d\n", getpid());
-    exit();
-  }
-}
-
 int
 main(int argc, char **argv)
 {
@@ -43,8 +34,12 @@ main(int argc, char **argv)
         printf(1, "process %d, lev%d\n", pid, getLevel());
     }
     printf(1, "process %d Done\n", pid);
+    exit();
   }
-  exit_child(p);
+  else{
+    while (wait() != -1)
+      sleep(1);
+  }
 
   printf(1, "Test2, schedulerLock\n");
   p = create_child(5);
@@ -100,9 +95,12 @@ main(int argc, char **argv)
       schedulerUnlock(PASSWORD);
       printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     }
-
+    exit();
   }
-  exit_child(p);
+  else{
+    while (wait() != -1)
+        sleep(1);
+  }
 
   printf(1, "Test3, schedulerLock by interrupts\n");
   p = create_child(2);
@@ -116,8 +114,12 @@ main(int argc, char **argv)
     }
     printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     __asm__("int $130"); // schedulerUnlock
+    exit();
   }
-  exit_child(p);
+  else{
+    while (wait() != -1)
+      sleep(1);
+  }
 
   exit();
 }

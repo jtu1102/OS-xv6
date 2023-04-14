@@ -248,6 +248,7 @@ exit(void)
   struct proc *p;
   int fd;
 
+  cprintf("exit: %d\n", curproc->pid);
   if(curproc == initproc)
     panic("init exiting");
 
@@ -301,6 +302,7 @@ wait(void)
       if(p->parent != curproc)
         continue;
       havekids = 1;
+      cprintf("parent: %d, chiled: %d, state: %d\n", curproc->pid, p->pid, p->state);
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
@@ -373,12 +375,13 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
-        // todo: unlock으로 돌아온 경우 detect
         if(!ticks) // priority boosting이 발생한 경우
           break;
 
+        if(dequeue(&mlfq.l0) != p)
+          panic("Unexpected modify in L0 Queue");
+
         if(p->lev == 1){ // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
-          dequeue(&mlfq.l0);
           enqueue(&mlfq.l1, p);
           #ifdef DEBUG
           cprintf("L0: Runned - %d\n", p->pid);
@@ -387,6 +390,8 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
+        else
+          enqueue(&mlfq.l0, p);
       }
       else{ // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
         dequeue(&mlfq.l0);
@@ -414,13 +419,14 @@ scheduler(void)
         swtch(&(c->scheduler), p->context);
         switchkvm();
         c->proc = 0;
-        if(top(&mlfq.l0) == p)
-          cprintf("unlocked!\n");
-        if(!ticks || top(&mlfq.l0) == p) // priority boosting이 발생한 경우 or unlock 후 돌아온 경우
+
+        if(!ticks) // priority boosting이 발생한 경우
           break;
+        
+        if(dequeue(&mlfq.l1) != p)
+          panic("Unexpected modify in L1 Queue");
 
         if(p->lev == 2){ // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
-          dequeue(&mlfq.l1);
           enqueue(&mlfq.l2, p);
           #ifdef DEBUG
           cprintf("L1: Runned - %d\n", p->pid);
@@ -429,6 +435,8 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
+        else
+          enqueue(&mlfq.l1, p);
         break;
       }
       else{
