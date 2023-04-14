@@ -33,17 +33,18 @@ main(int argc, char **argv)
 
   printf(1, "MLFQ scenario test\n");
 
-  // printf(1, "Test1\n");
-  // p = create_child(3);
-  // if (!p) {
-  //   pid = getpid();
-  //   for (int i = 0; i < NUM_LOOP; i++){
-  //     // printf(1, "process %d, lev%d\n", pid, getLevel());
-  //     getLevel();
-  //   }
-  //   printf(1, "process %d Done\n", pid);
-  // }
-  // exit_child(p);
+  printf(1, "Test1\n");
+  p = create_child(3);
+  if (!p) {
+    pid = getpid();
+    setPriority(pid, pid % 4);
+    for (int i = 0; i < NUM_LOOP; i++){
+      if(!(i % 1000))
+        printf(1, "process %d, lev%d\n", pid, getLevel());
+    }
+    printf(1, "process %d Done\n", pid);
+  }
+  exit_child(p);
 
   printf(1, "Test2, schedulerLock\n");
   p = create_child(5);
