@@ -23,6 +23,8 @@ tvinit(void) // initialize trap vector
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
   SETGATE(idt[T_SAMPLE128], 1, SEG_KCODE<<3, vectors[T_SAMPLE128], DPL_USER);
+  SETGATE(idt[T_SLOCK], 1, SEG_KCODE<<3, vectors[T_SLOCK], DPL_USER); // schedulerLock interrupt
+  SETGATE(idt[T_SUNLOCK], 1, SEG_KCODE<<3, vectors[T_SUNLOCK], DPL_USER); // schedulerUnlock interrupt
 
   initlock(&tickslock, "time");
 }
@@ -85,6 +87,16 @@ trap(struct trapframe *tf)
     cprintf("user interrupt 128 called!\n");
     lapiceoi();
     break;
+  
+  case T_SLOCK:
+    schedulerLock(PASSWORD);
+    lapiceoi();
+    break;
+  
+  case T_SUNLOCK:
+    schedulerUnlock(PASSWORD);
+    lapiceoi();
+    break;
 
   //PAGEBREAK: 13
   default:
@@ -111,9 +123,9 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER &&
-     myproc()->locked == 0){
-     if(myproc()->tq == myproc()->lev * 2 + 4){ // 큐가 tq을 모두 소비한 경우
+     tf->trapno == T_IRQ0+IRQ_TIMER){
+     if(myproc()->locked == 0 &&
+        myproc()->tq == myproc()->lev * 2 + 4){ // 큐가 tq을 모두 소비한 경우
         if(myproc()->lev != 2)
           myproc()->lev++;
         else if(myproc()->lev == 2){
@@ -122,18 +134,13 @@ trap(struct trapframe *tf)
         }
         myproc()->tq = 0;
       }
-      if(!(ticks % 100))
+      if(!(ticks % 100)){
+        if(myproc()->locked)
+          schedulerUnlock(PASSWORD); 
         priorityBoosting();
-      yield();
-  }
-
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER &&
-     myproc()->locked == 1 &&
-     !(ticks % 100)){
-      schedulerUnlock(PASSWORD);
-      priorityBoosting();
-      yield();
+      }
+      if(myproc()->locked == 0)
+        yield();
   }
 
   // Check if the process has been killed since we yielded

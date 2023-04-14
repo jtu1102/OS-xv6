@@ -37,3 +37,5 @@
 #define IRQ_SPURIOUS    31
 
 #define T_SAMPLE128     128
+#define T_SLOCK         129
+#define T_SUNLOCK       130

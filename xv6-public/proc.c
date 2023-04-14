@@ -8,7 +8,6 @@
 #include "spinlock.h"
 #include "queue.h"
 
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -313,6 +312,12 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+
+        p->lev = 0;
+        p->tq = 0;
+        p->priority = 3;
+        p->locked = 0;
+
         release(&ptable.lock);
         return pid;
       }
@@ -359,7 +364,7 @@ scheduler(void)
     size = mlfq.l0.count;
     while(size--){
       p = top(&mlfq.l0);
-      if(p->state == RUNNABLE){ // RUNNABLE한 프로세스인 경우 switch
+      if(p->lev == 0 && p->state == RUNNABLE){ // RUNNABLE한 프로세스인 경우 switch
         runnable_flag = 1;
         c->proc = p;
         switchuvm(p);
@@ -372,8 +377,8 @@ scheduler(void)
         if(!ticks) // priority boosting이 발생한 경우
           break;
 
-        dequeue(&mlfq.l0);
         if(p->lev == 1){ // tq을 다 쓴 프로세스는 l1로 넘겨줌 (이때, state에 대해서는 고려하지 않고, l1에서 처리되도록 함)
+          dequeue(&mlfq.l0);
           enqueue(&mlfq.l1, p);
           #ifdef DEBUG
           cprintf("L0: Runned - %d\n", p->pid);
@@ -382,13 +387,10 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else if(p->lev == 0 && p->state != UNUSED && p->state != ZOMBIE){ // tq이 남아 있고 아직 종료되지 않은 프로세스의 경우 l0 큐에 남겨두기 위해 임시저장
-          enqueue(&mlfq.l0, p);
-        }
       }
       else{ // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
         dequeue(&mlfq.l0);
-        if(p->state != UNUSED && p->state != ZOMBIE){
+        if(p->lev == 0 && p->state != UNUSED && p->state != ZOMBIE){
           enqueue(&mlfq.l0, p); // 맨 뒤로 보냄
         }
       }
@@ -403,7 +405,7 @@ scheduler(void)
     runnable_flag = 0;
     while(size--){ // 가장 앞에 있는 RUNNABLE한 프로세스 찾기
       p = top(&mlfq.l1);
-      if(p->state == RUNNABLE){
+      if(p->lev == 1 && p->state == RUNNABLE){
         runnable_flag = 1;
         c->proc = p;
         switchuvm(p);
@@ -417,8 +419,8 @@ scheduler(void)
         if(!ticks || top(&mlfq.l0) == p) // priority boosting이 발생한 경우 or unlock 후 돌아온 경우
           break;
 
-        dequeue(&mlfq.l1);
         if(p->lev == 2){ // tq을 다 쓴 프로세스는 dequeue 하고, l2로 넘겨줌
+          dequeue(&mlfq.l1);
           enqueue(&mlfq.l2, p);
           #ifdef DEBUG
           cprintf("L1: Runned - %d\n", p->pid);
@@ -427,14 +429,11 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else if(p->lev == 1 && p->state != UNUSED && p->state != ZOMBIE) // tq이 남아 있을 경우 l1 큐에 그대로 남겨 둠
-          enqueue(&mlfq.l1, p);
-        
         break;
       }
       else{
         dequeue(&mlfq.l1);
-        if(p->state != UNUSED && p->state != ZOMBIE)
+        if(p->lev == 1 && p->state != UNUSED && p->state != ZOMBIE)
           enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
       }
     }
@@ -679,7 +678,7 @@ priorityBoosting(void)
   }
   while(!isEmpty(&mlfq.l1)){
     p = dequeue(&mlfq.l1);
-    if(p->state != UNUSED && p->state != ZOMBIE){
+    if(p->lev == 1 && p->state != UNUSED && p->state != ZOMBIE){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -688,7 +687,7 @@ priorityBoosting(void)
   }
   while(!isEmpty(&mlfq.l2)){
     p = dequeue(&mlfq.l2);
-    if(p->state != UNUSED && p->state != ZOMBIE && p->state != EMBRYO){
+    if(p->lev == 2 && p->state != UNUSED && p->state != ZOMBIE && p->state != EMBRYO){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -728,33 +727,12 @@ setPriority(int pid, int priority)
 void
 schedulerLock(int password)
 {
-  struct proc *p;
-  struct Queue tmp;
-
   if(password == PASSWORD){
     if(myproc()->locked)
       return;
     myproc()->locked = 1;
   #ifdef DEBUG
     cprintf("[%d] lock!\n", myproc()->pid);
-  #endif
-    // mlfq에서 빼기
-    // RUNNING 상태이므로 자기 레벨의 큐 가장 앞에 있음
-    if(myproc()->lev == 0)
-      dequeue(&mlfq.l0);
-    else if(myproc()->lev == 1)
-      dequeue(&mlfq.l1);
-    else if(myproc()->lev == 2){
-      while(!isEmpty(&mlfq.l2)){
-        p = dequeue(&mlfq.l2);
-        if(p != myproc())
-          enqueue(&tmp, p);
-      }
-      while(!isEmpty(&tmp))
-        enqueue(&mlfq.l2, dequeue(&tmp));
-    }
-  #ifdef DEBUG
-    cprintf("Removed %d\n", myproc()->pid);
     cprintf("0:");printQueue(&mlfq.l0);
     cprintf("1:");printQueue(&mlfq.l1);
     cprintf("2:");printQueue(&mlfq.l2);
@@ -788,7 +766,9 @@ schedulerUnlock(int password)
     myproc()->locked = 0;
   }
   else{
-    cprintf("SchedulerLock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
+    cprintf("SchedulerUnlock: invalid password, pid: %d, time quantum: %d, level: %d\n", myproc()->pid, myproc()->tq, myproc()->lev);
+    myproc()->tq = 0;
+    myproc()->locked = 0;
     exit();
   }
 }
