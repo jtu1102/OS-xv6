@@ -210,4 +210,4 @@ void            printQueue(struct Queue*);
 #ifndef PASSWORD
 #define PASSWORD 2019076880
 #endif
-#define DEBUG
+// #define DEBUG
