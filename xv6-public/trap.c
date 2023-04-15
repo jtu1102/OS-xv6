@@ -124,6 +124,11 @@ trap(struct trapframe *tf)
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
      tf->trapno == T_IRQ0+IRQ_TIMER){
+      if(!(ticks % 100)){
+        if(myproc()->locked)
+          schedulerUnlock(PASSWORD); 
+        priorityBoosting();
+      }
      if(myproc()->locked == 0 &&
         myproc()->tq == myproc()->lev * 2 + 4){ // 큐가 tq을 모두 소비한 경우
         if(myproc()->lev != 2)
@@ -133,11 +138,6 @@ trap(struct trapframe *tf)
             myproc()->priority--;
         }
         myproc()->tq = 0;
-      }
-      if(!(ticks % 100)){
-        if(myproc()->locked)
-          schedulerUnlock(PASSWORD); 
-        priorityBoosting();
       }
       if(myproc()->locked == 0)
         yield();

@@ -248,7 +248,6 @@ exit(void)
   struct proc *p;
   int fd;
 
-  cprintf("exit: %d\n", curproc->pid);
   if(curproc == initproc)
     panic("init exiting");
 
@@ -302,7 +301,6 @@ wait(void)
       if(p->parent != curproc)
         continue;
       havekids = 1;
-      cprintf("parent: %d, chiled: %d, state: %d\n", curproc->pid, p->pid, p->state);
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
@@ -390,7 +388,7 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else
+        else if(p->lev == 0)
           enqueue(&mlfq.l0, p);
       }
       else{ // RUNNABLE한 프로세스가 아닌 경우 switch 하지 않음.
@@ -435,7 +433,7 @@ scheduler(void)
           cprintf("2:");printQueue(&mlfq.l2);
           #endif
         }
-        else
+        else if(p->lev == 1)
           enqueue(&mlfq.l1, p);
         break;
       }
@@ -453,12 +451,15 @@ scheduler(void)
       p = NULL;
       priority_min = 4; // max: 3 이므로 처음 초기화를 위해 4로 설정하고 시작함
       // L2의 프로세스 중 우선순위가 높고 L2에 먼저 들어온 프로세스 찾기
-      for(int i = (mlfq.l2.front + 1) % (NPROC + 1); i <= mlfq.l2.rear; i++){
+      size = mlfq.l2.count;
+      int i = (mlfq.l2.front + 1) % (NPROC + 1);
+      while(size--){
         now = mlfq.l2.q[i];
         if(now->state == RUNNABLE && now->priority < priority_min){
           p = now;
           priority_min = p->priority;
         }
+        i = (i + 1) % (NPROC + 1);
       }
       if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
         c->proc = p;
@@ -695,7 +696,7 @@ priorityBoosting(void)
   }
   while(!isEmpty(&mlfq.l2)){
     p = dequeue(&mlfq.l2);
-    if(p->lev == 2 && p->state != UNUSED && p->state != ZOMBIE && p->state != EMBRYO){
+    if(p->lev == 2 && p->state != UNUSED && p->state != ZOMBIE){
       p->tq = 0;
       p->lev = 0;
       p->priority = 3;
@@ -764,7 +765,8 @@ schedulerUnlock(int password)
     myproc()->lev = 0;
     myproc()->priority = 3;
     myproc()->tq = 0;
-    push(&mlfq.l0, myproc());
+    if(top(&mlfq.l0) != myproc()) // l0에서 lock된 경우가 아닐 때만 l0에 넣어줌. unlock되고 나면 스케줄러에서 lev이 다르므로 skip하게 됨
+      push(&mlfq.l0, myproc());
   #ifdef DEBUG
     cprintf("[%d] unlock!\n", myproc()->pid);
     printQueue(&mlfq.l0);

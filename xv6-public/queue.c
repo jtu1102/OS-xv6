@@ -81,11 +81,14 @@ push(struct Queue *queue, struct proc *p)
 void
 printQueue(struct Queue *queue)
 {
+    int size = queue->count;
+
     if(!isEmpty(queue)){
         cprintf("queue: ");
-        for(int i = (queue->front + 1) % (NPROC + 1); i <= queue->rear; i++){
-            i %= (NPROC + 1);
+        int i = (queue->front + 1) % (NPROC + 1);
+        while(size--){
             cprintf("%d(%d) ", queue->q[i]->pid, queue->q[i]->state);
+            i = (i + 1) % (NPROC + 1);
         }
     }
     cprintf("\n");
