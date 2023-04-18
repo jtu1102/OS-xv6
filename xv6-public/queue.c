@@ -39,8 +39,6 @@ isFull(struct Queue *queue)
 void
 enqueue(struct Queue *queue, struct proc *p)
 {
-    if(isFull(queue))
-        return;
     queue->rear = (queue->rear + 1) % (NPROC + 1);
     queue->q[queue->rear] = p;
     queue->count++;
@@ -49,8 +47,6 @@ enqueue(struct Queue *queue, struct proc *p)
 struct proc *
 dequeue(struct Queue *queue)
 {
-    if (isEmpty(queue)) // empty queue
-        return NULL;
     queue->front = (queue->front + 1) % (NPROC + 1);
     queue->count--;
 
@@ -60,16 +56,12 @@ dequeue(struct Queue *queue)
 struct proc *
 top(struct Queue *queue)
 {
-    if(isEmpty(queue))
-        return NULL;
     return queue->q[(queue->front + 1) % (NPROC + 1)];
 }
 
 void
 push(struct Queue *queue, struct proc *p)
 {
-    if(isFull(queue))
-        return;
     queue->q[queue->front] = p;
     if(queue->front > 0)
         queue->front--;
