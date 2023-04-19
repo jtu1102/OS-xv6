@@ -666,13 +666,16 @@ procdump(void)
 // priority boosting
 // tq=0, lev=0, priority=3으로 재설정
 // 큐 순서를 유지하되 현재 레벨이 높은 순서대로
-// UNUSED 된 프로세스 정리
+// UNUSED, ZOMBIE 된 프로세스 정리
 void
 priorityBoosting(void)
 {
   struct proc *p;
   int size;
 
+  #ifdef DEBUG
+  cprintf("boosted: %d\n", ticks);
+  #endif
   pushcli(); // disable timer interrupts
   acquire(&ptable.lock);
   size = mlfq.l0.count;
@@ -680,7 +683,6 @@ priorityBoosting(void)
     p = dequeue(&mlfq.l0);
     if(p->state != UNUSED && p->state != ZOMBIE){
       p->tq = 0;
-      p->lev = 0;
       p->priority = 3;
       enqueue(&mlfq.l0, p);
     }
@@ -704,6 +706,12 @@ priorityBoosting(void)
     }
   }
   release(&ptable.lock);
+  #ifdef DEBUG
+  cprintf("boosted done: %d\n", ticks);
+  cprintf("0:");printQueue(&mlfq.l0);
+  cprintf("1:");printQueue(&mlfq.l1);
+  cprintf("2:");printQueue(&mlfq.l2);
+  #endif
   ticks = 0;
   popcli(); // enable timer interrupts
 }
@@ -736,7 +744,7 @@ setPriority(int pid, int priority)
 void
 schedulerLock(int password)
 {
-  if(password == PASSWORD){
+  if(password == STUDENTID){
     if(myproc()->locked)
       return;
     myproc()->locked = 1;
@@ -759,7 +767,7 @@ schedulerLock(int password)
 void
 schedulerUnlock(int password)
 {
-  if(password == PASSWORD){
+  if(password == STUDENTID){
     if(!myproc()->locked) // 이미 unlock 되어 있는 경우 skip
       return;
     myproc()->lev = 0;
