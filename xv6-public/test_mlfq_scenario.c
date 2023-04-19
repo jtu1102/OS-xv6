@@ -3,7 +3,6 @@
 #include "user.h"
 
 #define NUM_LOOP 30000
-#define PASSWORD 2019076880
 
 int create_child(int num_child) {
   for (int i = 0; i < num_child; i++) {
@@ -24,7 +23,7 @@ main(int argc, char **argv)
 
   printf(1, "MLFQ scenario test\n");
 
-  printf(1, "Test1\n");
+  printf(1, "Test1 basic\n");
   p = create_child(3);
   if (!p) {
     pid = getpid();
@@ -48,11 +47,11 @@ main(int argc, char **argv)
     int cnt[3];
     if(pid % 6 == 0){
       cnt[0] = cnt[1] = cnt[2] = 0;
-      schedulerLock(PASSWORD);
+      schedulerLock(2019076880);
       for (int i = 0; i < 50; i++){ // Unlock in user process (100 tick 이내에 룹 종료)
         cnt[getLevel()]++;
       }
-      schedulerUnlock(PASSWORD);
+      schedulerUnlock(2019076880);
       printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     }
 
@@ -62,13 +61,13 @@ main(int argc, char **argv)
       for (int i = 0; i < NUM_LOOP; i++){
         cnt[getLevel()]++;
       }
-      schedulerUnlock(PASSWORD);
+      schedulerUnlock(2019076880);
       printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     }
 
     else if(pid % 6 == 2){
       cnt[0] = cnt[1] = cnt[2] = 0;
-      schedulerLock(PASSWORD);
+      schedulerLock(2019076880);
       for (int i = 0; i < 50; i++){
         cnt[getLevel()]++;
       }
@@ -78,7 +77,7 @@ main(int argc, char **argv)
 
     else if(pid % 6 == 3){
       cnt[0] = cnt[1] = cnt[2] = 0;
-      schedulerLock(PASSWORD);
+      schedulerLock(2019076880);
       for (int i = 0; i < NUM_LOOP; i++){ // priority boosting 에 의해 unlock
         cnt[getLevel()]++;
       }
@@ -91,21 +90,21 @@ main(int argc, char **argv)
       for (int i = 0; i < NUM_LOOP / 2; i++){
         cnt[getLevel()]++;
       }
-      schedulerLock(PASSWORD); // 한참 실행 중에 lock 되는 경우
+      schedulerLock(2019076880); // 한참 실행 중에 lock 되는 경우
       for (int i = 0; i < NUM_LOOP / 2; i++){
         cnt[getLevel()]++;
       }
-      schedulerUnlock(PASSWORD); // wrong password unlock 이후 password 오류 -> 에러로 처리
+      schedulerUnlock(2019076880);
       printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     }
 
     else{
       cnt[0] = cnt[1] = cnt[2] = 0;
-      schedulerLock(PASSWORD);
+      schedulerLock(2019076880);
       for (int i = 0; i < NUM_LOOP; i++){ // priority boosting 에 의해 unlock
         cnt[getLevel()]++;
       }
-      schedulerUnlock(PASSWORD);
+      schedulerUnlock(2019076880);
       printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     }
     exit();
@@ -127,6 +126,21 @@ main(int argc, char **argv)
     }
     printf(1, "process %d Done, cnt: %d, %d, %d\n", pid, cnt[0], cnt[1], cnt[2]);
     __asm__("int $130"); // schedulerUnlock
+    exit();
+  }
+  else{
+    while (wait() != -1)
+      sleep(1);
+  }
+
+  printf(1, "Test4 Max process (64)\n"); // 프로세스 개수가 많아 실행 시간이 1분 정도 필요함
+  p = create_child(61); // 64 - init proc - shell proc - parent proc
+  if(!p) {
+    pid = getpid();
+    setPriority(pid, pid % 4);
+    for (int i = 0; i < 10000; i++)
+      getLevel();
+    printf(1, "process %d Done\n", pid);
     exit();
   }
   else{
