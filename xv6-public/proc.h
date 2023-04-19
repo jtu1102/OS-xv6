@@ -8,7 +8,6 @@ struct cpu {
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
-  int locked;
 };
 
 extern struct cpu cpus[NCPU];
@@ -54,7 +53,7 @@ struct proc {
   int lev;                     // queue level (0~2)
   uint tq;                     // time quantum
   int priority;                // process priority (for L2 queue)
-  int locked;                  // has the process got lock?
+  int locked;                  // has the process got locked?
 };
 
 // Process memory is laid out contiguously, low addresses first:
