@@ -30,7 +30,7 @@ OBJS = \
 	prac_syscall.o\
 	queue.o\
 
-PASSWORD = 2019076880
+PASSWORD = 2019076880 # scheduler lock / unlock password for interrupts
 
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf

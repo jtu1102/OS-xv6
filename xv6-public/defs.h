@@ -207,6 +207,7 @@ void            printQueue(struct Queue*);
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
+#define STUDENTID 2019076880
 #ifndef PASSWORD
 #define PASSWORD 2019076880
 #endif
