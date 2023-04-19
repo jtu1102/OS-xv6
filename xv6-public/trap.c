@@ -126,7 +126,7 @@ trap(struct trapframe *tf)
      tf->trapno == T_IRQ0+IRQ_TIMER){
       if(!(ticks % 100)){
         if(myproc()->locked)
-          schedulerUnlock(PASSWORD); 
+          schedulerUnlock(STUDENTID); // just unlock no password issue
         priorityBoosting();
       }
      if(myproc()->locked == 0 &&
