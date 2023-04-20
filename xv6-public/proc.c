@@ -443,6 +443,7 @@ scheduler(void)
           enqueue(&mlfq.l1, p); // RUNNABLE로 전환될 여지가 남아 있음, L1의 맨 뒤로 보냄
       }
     }
+
     /* schedule process in L2 */
     // L1큐에 실행할 프로세스가 없는 경우
     // L2큐를 순회하며 실행할 프로세스 고르기
@@ -461,7 +462,7 @@ scheduler(void)
         }
         i = (i + 1) % (NPROC + 1);
       }
-      if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
+      if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 높은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
         c->proc = p;
         switchuvm(p);
         p->state = RUNNING;

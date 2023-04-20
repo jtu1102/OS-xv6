@@ -7833,7 +7833,7 @@ myproc(void) {
 80103ecb:	89 cf                	mov    %ecx,%edi
 80103ecd:	eb c1                	jmp    80103e90 <scheduler+0x200>
 80103ecf:	90                   	nop
-      if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 낮은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
+      if(p && p->lev == 2){ // RUNNABLE한 프로세스 중 가장 우선순위가 높은 프로세스를 찾았다면! // Unlock 이후에 lev이 변경된 프로세스 있을 수 있음
 80103ed0:	8b 45 dc             	mov    -0x24(%ebp),%eax
 80103ed3:	85 c0                	test   %eax,%eax
 80103ed5:	74 06                	je     80103edd <scheduler+0x24d>
