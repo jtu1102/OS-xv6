@@ -23,7 +23,6 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int myfunction(char*);
 void yield(void);
 int getLevel(void);
 int setPriority(int pid, int priority);
