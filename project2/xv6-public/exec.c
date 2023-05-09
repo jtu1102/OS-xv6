@@ -26,7 +26,7 @@ exec(char *path, char **argv)
     cprintf("exec: fail\n");
     return -1;
   }
-  ilock(ip);
+  ilock(ip); // lock inode
   pgdir = 0;
 
   // Check ELF header
@@ -49,14 +49,14 @@ exec(char *path, char **argv)
       goto bad;
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;
-    if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0)
+    if((sz = allocuvm(pgdir, sz, ph.vaddr + ph.memsz)) == 0) // 필요한 메모리 할당
       goto bad;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
-    if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0)
+    if(loaduvm(pgdir, (char*)ph.vaddr, ip, ph.off, ph.filesz) < 0) // 프로그램 로드
       goto bad;
   }
-  iunlockput(ip);
+  iunlockput(ip); // unlock + put inode
   end_op();
   ip = 0;
 
@@ -100,7 +100,7 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
-  switchuvm(curproc);
+  switchuvm(curproc); // switch to new process
   freevm(oldpgdir);
   return 0;
 

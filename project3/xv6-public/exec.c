@@ -32,7 +32,7 @@ exec(char *path, char **argv)
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
-  if(elf.magic != ELF_MAGIC)
+  if(elf.magic != ELF_MAGIC) // 읽은 파일이 elf인지 아닌지 확인
     goto bad;
 
   if((pgdir = setupkvm()) == 0)

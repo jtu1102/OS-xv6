@@ -22,7 +22,6 @@ tvinit(void) // initialize trap vector
   for(i = 0; i < 256; i++)
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
-  SETGATE(idt[T_SAMPLE128], 1, SEG_KCODE<<3, vectors[T_SAMPLE128], DPL_USER);
 
   initlock(&tickslock, "time");
 }
@@ -79,11 +78,6 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
   
-  case T_SAMPLE128:
-    cprintf("user interrupt 128 called!\n");
-    lapiceoi();
-    break;
-
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){

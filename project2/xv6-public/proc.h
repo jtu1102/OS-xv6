@@ -49,8 +49,11 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  thread_t nexttid;            // Allocate tid - global in same pid
 
   int mlimit;                  // Process memory limitation
+  int isThread;                // 0: process, 1: thread
+  thread_t tid;                // Thread id
 };
 
 // Process memory is laid out contiguously, low addresses first:

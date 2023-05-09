@@ -87,7 +87,7 @@ allocproc(void)
 
 found:
   p->state = EMBRYO;
-  p->pid = nextpid++;
+  // p->pid = nextpid++;
 
   release(&ptable.lock);
 
@@ -191,6 +191,8 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
+  np->pid = nextpid++;
+  np->nexttid = 0;
 
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
