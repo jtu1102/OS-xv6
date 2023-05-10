@@ -105,6 +105,7 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_myfunction(void);
 extern int sys_setmemorylimit(void);
+extern int sys_thread_create(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -129,6 +130,7 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_setmemorylimit] sys_setmemorylimit,
+[SYS_thread_create] sys_thread_create,
 };
 
 void
