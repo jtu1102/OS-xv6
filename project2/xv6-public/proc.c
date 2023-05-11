@@ -563,7 +563,7 @@ int
 thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 {
     int i;
-    uint sz, sp, ustack[3];
+    uint sz, sp, ustack[2];
     struct proc *nt, *p;
     struct proc *curproc = myproc();
 
@@ -578,14 +578,11 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     *nt->tf = *curproc->tf;
 
     nt->isThread = 1;
+    nt->main = curproc;
+    nt->retval = 0;
     nt->tid = curproc->nexttid++;
     
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-        if(p->pid == curproc->pid)
-            p->nexttid = curproc->nexttid;
-    release(&ptable.lock);
-    // nt->tf->eax = 0; // start_routine에서 알아서 처리 될 거니까 추가 안 해도 될듯. 아 확신은 없다 근뎁
+    nt->tf->eax = 0; // start_routine에서 알아서 처리 될 거니까 추가 안 해도 될듯.? 아 확신은 없다 근뎁
     
     for(i = 0; i < NOFILE; i++)
         if(curproc->ofile[i])
@@ -599,23 +596,28 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     clearpteu(nt->pgdir, (char*)(sz - 2*PGSIZE));
     sp = sz;
     nt->sz = sz;
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->pid == curproc->pid){
+            p->nexttid = curproc->nexttid;
+            p->sz = sz;
+        }
+    }
+    release(&ptable.lock);
     
-    // todo: arg setting
     // Push argument strings, prepare rest of stack in ustack.
-    ustack[2] = 0;
     ustack[1] = (uint)arg; // argument of start_routine
-    ustack[0] = 0xffffffff; // fake return PC
+    ustack[0] = 0xffffffff; // fake return PC *어차피 exit로 종료되므로 fake 값 넣어둠
 
-    sp -= 3 * 4;
-    if(copyout(nt->pgdir, sp, ustack, 3*4) < 0)
+    sp -= 2 * 4;
+    if(copyout(nt->pgdir, sp, ustack, 2*4) < 0)
         return -1;
     nt->tf->esp = sp;
 
     safestrcpy(nt->name, curproc->name, sizeof(curproc->name));
 
-    nt->tf->eip = (uint)start_routine; // (?) allocproc에서 forkret 실행시키는거 따라함..
-    // switchuvm...... 해 줘야 하나? 휴.. ㅜㅜㅜ어렵다
-    // switchuvm(nt);
+    nt->tf->eip = (uint)start_routine; // (?) allocproc에서 forkret 실행시키는거 따라함.. 잘 되는군
+
     acquire(&ptable.lock);
     nt->state = RUNNABLE;
     release(&ptable.lock);
@@ -623,4 +625,106 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     *thread = nt->tid;
     
     return 0;
+}
+
+// Equivalent to exit(void) for process
+void thread_exit(void *retval)
+{
+  struct proc *curthread = myproc();
+  struct proc *p;
+  int fd;
+
+  #ifdef DEBUG
+  cprintf("in thread_exit\n");
+  #endif
+  if(curthread == initproc)
+    panic("init exiting");
+  
+  // Close all open files.
+  for(fd = 0; fd < NOFILE; fd++){
+    if(curthread->ofile[fd]){
+      fileclose(curthread->ofile[fd]);
+      curthread->ofile[fd] = 0;
+    }
+  }
+
+  begin_op();
+  iput(curthread->cwd);
+  end_op();
+  curthread->cwd = 0;
+
+  curthread->retval = retval;
+
+  acquire(&ptable.lock);
+
+  // Parent might be sleeping in thread_join().
+  wakeup1(curthread->main); // parent가 아니라 메인 스레드를 깨워야 함
+
+  // Pass abandoned children to init.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->parent == curthread){
+      p->parent = initproc;
+      if(p->state == ZOMBIE)
+        wakeup1(initproc);
+    }
+  }
+
+  // Jump into the scheduler, never to return.
+  curthread->state = ZOMBIE;
+  #ifdef DEBUG
+  cprintf("out thread_exit\n");
+  #endif
+  sched();
+  panic("zombie exit");
+}
+
+// Equivalent to wait(void) for process
+int thread_join(thread_t thread, void **retval)
+{
+  struct proc *p;
+  int havekids;
+  struct proc *curthread = myproc();
+  
+  acquire(&ptable.lock);
+  #ifdef DEBUG
+  cprintf("in join\n");
+  #endif
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->main != curthread)
+        continue;
+      havekids = 1;
+      if(p->tid == thread && p->state == ZOMBIE){
+        // Found one.
+        *retval = p->retval;
+        kfree(p->kstack);
+        p->kstack = 0;
+        // freevm(p->pgdir);
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->nexttid = 0;
+        p->mlimit = 0;
+        p->isThread = 0;
+        p->main = 0;
+        p->retval = 0;
+        p->tid = 0;
+        p->state = UNUSED;
+        release(&ptable.lock);
+        return 0;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || curthread->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(curthread, &ptable.lock);  //DOC: wait-sleep
+  }
 }

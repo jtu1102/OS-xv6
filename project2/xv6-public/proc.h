@@ -53,6 +53,8 @@ struct proc {
 
   int mlimit;                  // Process memory limitation
   int isThread;                // 0: process, 1: thread
+  struct proc *main;           // Main thread (process that created the thread)
+  void *retval;                 // Return value of thread
   thread_t tid;                // Thread id
 };
 
