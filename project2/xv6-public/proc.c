@@ -177,7 +177,7 @@ growproc(int n)
   // pid가 동일한 스레드 간 heap 메모리 영역을 공유할 수 있게 함
   // 새로 생성되는 스레드에 대한 스택 영역이 힙 영역을 침범하지 않도록 함
   acquire(&ptable.lock);
-  for(p = ptable.proc; &ptable.proc[NPROC]; p++){
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == curproc->pid)
       p->sz = curproc->sz;
   }
@@ -297,12 +297,17 @@ wait(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != curproc)
         continue;
+      if(p->isThread) // wait thread in thread_join
+        continue;
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
+        #ifdef DEBUG
+        cprintf("난 프로세스 %d, %d 정리 중입니다\n", curproc->pid, p->pid);
+        #endif
         freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
@@ -711,6 +716,8 @@ int thread_join(thread_t thread, void **retval)
         kfree(p->kstack);
         p->kstack = 0;
         // freevm(p->pgdir);
+        // stack 공간은 free 해 주어야 하는거 아닌가..?
+        // 아 어차피 메인 스레드 프로세스가 종료될 때 해결되겠구나..!
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
