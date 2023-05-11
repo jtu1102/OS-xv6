@@ -160,6 +160,7 @@ growproc(int n)
 {
   uint sz;
   struct proc *curproc = myproc();
+  struct proc *p;
 
   sz = curproc->sz;
   if(n > 0){
@@ -173,6 +174,14 @@ growproc(int n)
       return -1;
   }
   curproc->sz = sz;
+  // pid가 동일한 스레드 간 heap 메모리 영역을 공유할 수 있게 함
+  // 새로 생성되는 스레드에 대한 스택 영역이 힙 영역을 침범하지 않도록 함
+  acquire(&ptable.lock);
+  for(p = ptable.proc; &ptable.proc[NPROC]; p++){
+    if(p->pid == curproc->pid)
+      p->sz = curproc->sz;
+  }
+  release(&ptable.lock);
   switchuvm(curproc);
   return 0;
 }

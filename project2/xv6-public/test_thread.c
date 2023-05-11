@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
   printf(1, "main thread waiting for other threads...\n");
   join_all(5);
   if (global != 1) {
-    printf(1, "Join returned before thread exit, or the address space is not properly shared\n");
+    printf(1, "join returned before thread exit, or the address space is not properly shared\n");
     exit();
   }
   printf(1, "Test 1 passed\n\n");
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
   join_all(NUM_THREAD);
   if (global != 2) {
     if (global == 3) {
-      printf(1, "Child process referenced parent's memory\n");
+      printf(1, "child process referenced parent's memory\n");
     }
     else {
       printf(1, "global expected 2, found %d\n", global);
