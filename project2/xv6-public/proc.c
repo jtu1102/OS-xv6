@@ -561,7 +561,7 @@ setmemorylimit(int pid, int limit)
     return -1;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
-      if(p->sz < limit) // todo: check: sz를 보면 프로세스에 기존 할당받은 메모리를 알 수 있는거.. 맞겠지?
+      if(p->sz > limit) // todo: check: sz를 보면 프로세스에 기존 할당받은 메모리를 알 수 있는거.. 맞겠지?
         return -1;
       else{
         p->mlimit = limit;
@@ -635,9 +635,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     acquire(&ptable.lock);
     nt->state = RUNNABLE;
     release(&ptable.lock);
-
     *thread = nt->tid;
-    
     return 0;
 }
 
@@ -742,5 +740,54 @@ int thread_join(thread_t thread, void **retval)
 
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(curthread, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
+void
+thread_clear(struct proc *curproc)
+{
+  struct proc *p;
+  int fd;
+
+  // 스레드에서 exec가 호출된 경우
+  if(curproc->isThread) {
+    curproc->isThread = 0;
+    // make original main thread (process) to thread
+    curproc->main->isThread = 1;
+    curproc->main = 0;
+    curproc->nexttid = 0;
+  }
+  // clear all threads
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == curproc->pid && p->isThread) {
+      if(p == initproc)
+        panic("init exiting");
+      
+      // Close all open files.
+      for(fd = 0; fd < NOFILE; fd++){
+        if(p->ofile[fd]){
+          fileclose(p->ofile[fd]);
+          p->ofile[fd] = 0;
+        }
+      }
+      begin_op();
+      iput(p->cwd);
+      end_op();
+      p->cwd = 0;
+
+      kfree(p->kstack);
+      p->kstack = 0;
+      p->pid = 0;
+      p->parent = 0;
+      p->name[0] = 0;
+      p->killed = 0;
+      p->nexttid = 0;
+      p->mlimit = 0;
+      p->isThread = 0;
+      p->main = 0;
+      p->retval = 0;
+      p->tid = 0;
+      p->state = UNUSED;
+    }
   }
 }

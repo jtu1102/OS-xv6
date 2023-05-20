@@ -73,7 +73,7 @@ exec(char *path, char **argv)
   for(argc = 0; argv[argc]; argc++) {
     if(argc >= MAXARG)
       goto bad;
-    sp = (sp - (strlen(argv[argc]) + 1)) & ~3;
+    sp = (sp - (strlen(argv[argc]) + 1)) & ~3; // 이거 이해 안됨. 근데 이해해야 할 것 같음. ㅠㅠㅠㅠ
     if(copyout(pgdir, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
       goto bad;
     ustack[3+argc] = sp;
@@ -87,6 +87,7 @@ exec(char *path, char **argv)
   sp -= (3+argc+1) * 4;
   if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
     goto bad;
+  thread_clear(curproc);
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)
@@ -196,6 +197,7 @@ exec2(char *path, char **argv, int stacksize)
   sp -= (3+argc+1) * 4;
   if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
     goto bad;
+  thread_clear(curproc);
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)

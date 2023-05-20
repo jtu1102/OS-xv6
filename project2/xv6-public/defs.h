@@ -123,8 +123,9 @@ void            wakeup(void*);
 void            yield(void);
 int             setmemorylimit(int, int);
 int             thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg);
-void            thread_exit(void*);
-int             thread_join(thread_t, void**);
+void            thread_exit(void *retval);
+int             thread_join(thread_t thread, void **retval);
+void            thread_clear(struct proc *curproc);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

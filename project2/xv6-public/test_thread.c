@@ -17,7 +17,13 @@ void *routine_basic(void *arg)
     sleep(200);
     global = 1;
   }
-  printf(1, "Thread %d end\n", val);
+  if (val == 2) {
+    printf(1, "tid 2 - i changed val to 1000\n");
+    val = 1000;
+    yield();
+  }
+  printf(1, "val: %d\n", val);
+  printf(1, "Thread %d end\n", (int)arg);
   thread_exit(arg);
   return 0;
 }
