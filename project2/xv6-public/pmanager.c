@@ -74,15 +74,15 @@ runlist(void)
     // 3. process stack page number ?? stacksize PCB에 기록하고 pid 같은 스레드 다 합쳐주기
     // 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
     // 5. memory limit -> 모두 공유. 출력하면 됨
-    // 오 개잘되넹 ㅋㅎ todo: print format 예쁘게
+    // todo: print format 예쁘게
     int i;
 
     process_status(&pstatus);
     for(i = 0; i < pstatus.active; i++){
         printf(1, "[%d] %s\n", pstatus.info[i].pid, pstatus.info[i].name);
-        printf(1, "  %d\n", pstatus.info[i].sz);
-        printf(1, "  %d\n", pstatus.info[i].sumofstacksz);
-        printf(1, "  %d\n", pstatus.info[i].mlimit);
+        printf(1, "  sz: %d\n", pstatus.info[i].sz);
+        printf(1, "  sumofstacksz: %d\n", pstatus.info[i].sumofstacksz);
+        printf(1, "  mlimit: %d\n", pstatus.info[i].mlimit);
     }
 }
 
@@ -100,7 +100,17 @@ runkill(char *strpid)
 void
 runexec(char *path, char *strstacksize)
 {
+    int stacksize;
+    char *argv[2];
 
+    argv[0] = path;
+    argv[1] = 0;
+    stacksize = atoi(strstacksize);
+    if(fork1() == 0){
+        if(path == 0)
+            exit();
+        exec2(path, argv, stacksize);
+    }
 }
 
 void

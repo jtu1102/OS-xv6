@@ -30,6 +30,7 @@ void thread_exit(void*);
 int thread_join(thread_t, void**);
 void yield(void);
 void process_status(struct ps* s);
+int exec2(char*, char**, int);
 
 // ulib.c
 int stat(const char*, struct stat*);

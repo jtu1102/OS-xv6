@@ -307,9 +307,6 @@ wait(void)
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        #ifdef DEBUG
-        cprintf("난 프로세스 %d, %d 정리 중입니다\n", curproc->pid, p->pid);
-        #endif
         freevm(p->pgdir);
         p->pid = 0;
         p->parent = 0;
@@ -563,7 +560,7 @@ setmemorylimit(int pid, int limit)
     return -1;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
-      if(p->sz > limit) // todo: check: sz를 보면 프로세스에 기존 할당받은 메모리를 알 수 있는거.. 맞겠지?
+      if(limit && p->sz > limit)
         return -1;
       else{
         p->mlimit = limit;
@@ -809,7 +806,7 @@ process_status(struct ps *s)
     if((p->state == RUNNABLE || p->state == RUNNING) && !p->isThread){
       s->info[i].sz = p->sz;
       s->info[i].pid = p->pid;
-      s->info[i].sumofstacksz = p->stacksz + p->nexttid + 1; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
+      s->info[i].sumofstacksz = p->stacksz + p->nexttid; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
       s->info[i].mlimit = p->mlimit;
       safestrcpy(s->info[i].name, p->name, sizeof(s->info[i].name));
       i++;

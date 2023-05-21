@@ -123,7 +123,7 @@ runcmd(struct cmd *cmd)
 
   case BACK:
     bcmd = (struct backcmd*)cmd;
-    if(fork1() == 0)
+    if(fork1() == 0) // 한번 더 fork해서 실행시킴 (no wait)
       runcmd(bcmd->cmd);
     break;
   }
@@ -486,6 +486,9 @@ nulterminate(struct cmd *cmd)
 
   case BACK:
     bcmd = (struct backcmd*)cmd;
+    #ifdef DEBUG
+    printf(1, "bcmd, cmd: %d, %d", bcmd->type, bcmd->cmd->type);
+    #endif
     nulterminate(bcmd->cmd);
     break;
   }

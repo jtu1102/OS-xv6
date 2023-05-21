@@ -110,6 +110,7 @@ extern int sys_thread_exit(void);
 extern int sys_thread_join(void);
 extern int sys_yield(void);
 extern int sys_process_status(void);
+extern int sys_exec2(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -139,6 +140,7 @@ static int (*syscalls[])(void) = {
 [SYS_thread_join] sys_thread_join,
 [SYS_yield]   sys_yield,
 [SYS_process_status] sys_process_status,
+[SYS_exec2]   sys_exec2,
 };
 
 void

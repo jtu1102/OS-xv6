@@ -26,3 +26,4 @@
 #define SYS_thread_join 25
 #define SYS_yield  26
 #define SYS_process_status 27
+#define SYS_exec2  28
