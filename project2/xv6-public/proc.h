@@ -52,6 +52,7 @@ struct proc {
   thread_t nexttid;            // Allocate tid - global in same pid
 
   int mlimit;                  // Process memory limitation
+  int stacksz;                 // # of stack page
   int isThread;                // 0: process, 1: thread
   struct proc *main;           // Main thread (process that created the thread)
   void *retval;                // Return value of thread

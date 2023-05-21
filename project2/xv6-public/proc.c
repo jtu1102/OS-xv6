@@ -141,6 +141,7 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
+  p->stacksz = 1;
 
   // this assignment to p->state lets other cores
   // run this process. the acquire forces the above
@@ -211,6 +212,7 @@ fork(void)
     return -1;
   }
   np->sz = curproc->sz;
+  np->stacksz = curproc->stacksz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -588,6 +590,7 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     nt->pid = curproc->pid;
     nt->pgdir = curproc->pgdir; // share text, data, heap memory with main thread
     nt->sz = curproc->sz;
+    nt->stacksz = 1;
     nt->parent = curproc->parent; // (?) thread의 부모 프로세스는 생성 프로세스의 부모 프로세스를 따라가기.. 어디서 생성되었는지는 pid를 보면 알 수 있으니까
     *nt->tf = *curproc->tf;
 
@@ -749,6 +752,8 @@ thread_clear(struct proc *curproc)
   struct proc *p;
   int fd;
 
+  if(!curproc->nexttid)
+    return;
   // 스레드에서 exec가 호출된 경우
   if(curproc->isThread) {
     curproc->isThread = 0;
@@ -788,6 +793,21 @@ thread_clear(struct proc *curproc)
       p->retval = 0;
       p->tid = 0;
       p->state = UNUSED;
+      // sz의 경우 exec 안에서 재설정 되므로 갱신 필요 없음
     }
   }
+}
+
+void
+process_status()
+{
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if((p->state == RUNNABLE || p->state == RUNNING) && !p->isThread){
+      // to
+    }
+  }
+  release(&ptable.lock);
 }
