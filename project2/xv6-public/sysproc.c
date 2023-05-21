@@ -144,3 +144,14 @@ sys_thread_join(void)
   thread_join(thread, retval);
   return 0;
 }
+
+int
+sys_process_status(void)
+{
+  struct ps *s;
+
+  if(argptr(0, (char **)&s, sizeof(s)) < 0)
+    return -1;
+  process_status(s);
+  return 0;
+}

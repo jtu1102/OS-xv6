@@ -4,6 +4,18 @@
 #include "user.h"
 #include "fcntl.h"
 
+#define NPROC 64
+struct ps {
+  int active;         // # of running & runnable processes
+  struct info {       // information of process
+    uint sz;
+    int pid;
+    int sumofstacksz;
+    int mlimit;
+    char name[16];
+  } info[NPROC];
+} pstatus;
+
 int
 getcmd(char *buf, int nbuf)
 {
@@ -62,6 +74,16 @@ runlist(void)
     // 3. process stack page number ?? stacksize PCB에 기록하고 pid 같은 스레드 다 합쳐주기
     // 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
     // 5. memory limit -> 모두 공유. 출력하면 됨
+    // 오 개잘되넹 ㅋㅎ todo: print format 예쁘게
+    int i;
+
+    process_status(&pstatus);
+    for(i = 0; i < pstatus.active; i++){
+        printf(1, "[%d] %s\n", pstatus.info[i].pid, pstatus.info[i].name);
+        printf(1, "  %d\n", pstatus.info[i].sz);
+        printf(1, "  %d\n", pstatus.info[i].sumofstacksz);
+        printf(1, "  %d\n", pstatus.info[i].mlimit);
+    }
 }
 
 void
@@ -97,13 +119,6 @@ runmemlim(char *strpid, char *strlimit)
 void
 runcmd(char **cmd)
 {
-    #ifdef DEBUG
-    // debug.. check parsing done correctly
-    for(int i = 0; i < 4; i++){
-        printf(1, cmd[i]);
-        printf(1, "\n");
-    }
-    #endif
     if(!strcmp(cmd[0], "list"))
         runlist();
     else if(!strcmp(cmd[0], "kill"))

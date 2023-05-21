@@ -1,5 +1,6 @@
 struct stat;
 struct rtcdate;
+struct ps;
 
 // system calls
 int fork(void);
@@ -28,6 +29,7 @@ int thread_create(thread_t*, void*(void*), void*);
 void thread_exit(void*);
 int thread_join(thread_t, void**);
 void yield(void);
+void process_status(struct ps* s);
 
 // ulib.c
 int stat(const char*, struct stat*);

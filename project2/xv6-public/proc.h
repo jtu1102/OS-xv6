@@ -64,3 +64,14 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+struct ps {
+  int active;         // # of running & runnable processes
+  struct info {       // information of process
+    uint sz;
+    int pid;
+    int sumofstacksz;
+    int mlimit;
+    char name[16];
+  } info[NPROC];
+};

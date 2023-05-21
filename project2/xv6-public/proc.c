@@ -799,15 +799,22 @@ thread_clear(struct proc *curproc)
 }
 
 void
-process_status()
+process_status(struct ps *s)
 {
   struct proc *p;
+  int i;
 
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(p = ptable.proc, i = 0; p < &ptable.proc[NPROC]; p++){
     if((p->state == RUNNABLE || p->state == RUNNING) && !p->isThread){
-      // to
+      s->info[i].sz = p->sz;
+      s->info[i].pid = p->pid;
+      s->info[i].sumofstacksz = p->stacksz + p->nexttid + 1; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
+      s->info[i].mlimit = p->mlimit;
+      safestrcpy(s->info[i].name, p->name, sizeof(s->info[i].name));
+      i++;
     }
   }
+  s->active = i;
   release(&ptable.lock);
 }
