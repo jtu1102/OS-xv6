@@ -605,9 +605,9 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
     // allocate user stack
     sz = nt->sz;
-    if((sz = allocuvm(nt->pgdir, sz, sz + 2*PGSIZE)) == 0)
+    if((sz = allocuvm(nt->pgdir, sz, sz + (curproc->stacksz)*PGSIZE)) == 0)
         return -1;
-    clearpteu(nt->pgdir, (char*)(sz - 2*PGSIZE));
+    clearpteu(nt->pgdir, (char*)(sz - (curproc->stacksz)*PGSIZE));
     sp = sz;
     nt->sz = sz;
     acquire(&ptable.lock);
@@ -803,10 +803,10 @@ process_status(struct ps *s)
 
   acquire(&ptable.lock);
   for(p = ptable.proc, i = 0; p < &ptable.proc[NPROC]; p++){
-    if((p->state == RUNNABLE || p->state == RUNNING) && !p->isThread){
+    if((p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING) && !p->isThread){
       s->info[i].sz = p->sz;
       s->info[i].pid = p->pid;
-      s->info[i].sumofstacksz = p->stacksz + p->nexttid; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
+      s->info[i].stacksz = p->stacksz; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
       s->info[i].mlimit = p->mlimit;
       safestrcpy(s->info[i].name, p->name, sizeof(s->info[i].name));
       i++;

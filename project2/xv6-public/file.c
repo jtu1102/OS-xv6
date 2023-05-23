@@ -94,7 +94,7 @@ filestat(struct file *f, struct stat *st)
 
 // Read from file f.
 int
-fileread(struct file *f, char *addr, int n)
+fileread(struct file *f, char *addr, int n) // addr: 읽은 내용 쓸 버퍼, n: 얼마나 읽을지
 {
   int r;
 

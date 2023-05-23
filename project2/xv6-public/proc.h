@@ -70,7 +70,7 @@ struct ps {
   struct info {       // information of process
     uint sz;
     int pid;
-    int sumofstacksz;
+    int stacksz;
     int mlimit;
     char name[16];
   } info[NPROC];

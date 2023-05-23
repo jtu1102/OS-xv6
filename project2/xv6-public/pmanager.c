@@ -10,7 +10,7 @@ struct ps {
   struct info {       // information of process
     uint sz;
     int pid;
-    int sumofstacksz;
+    int stacksz;
     int mlimit;
     char name[16];
   } info[NPROC];
@@ -71,7 +71,7 @@ runlist(void)
     // print process info
     // 1. process name
     // 2. process pid
-    // 3. process stack page number ?? stacksize PCB에 기록하고 pid 같은 스레드 다 합쳐주기
+    // 3. process stack page number -> 메인 스레드의 스택용 페이지 수
     // 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
     // 5. memory limit -> 모두 공유. 출력하면 됨
     // todo: print format 예쁘게
@@ -79,10 +79,11 @@ runlist(void)
 
     process_status(&pstatus);
     for(i = 0; i < pstatus.active; i++){
-        printf(1, "[%d] %s\n", pstatus.info[i].pid, pstatus.info[i].name);
-        printf(1, "  sz: %d\n", pstatus.info[i].sz);
-        printf(1, "  sumofstacksz: %d\n", pstatus.info[i].sumofstacksz);
-        printf(1, "  mlimit: %d\n", pstatus.info[i].mlimit);
+        printf(1, "");
+        printf(1, "[PID: %d] Process Name: %s\n", pstatus.info[i].pid, pstatus.info[i].name);
+        printf(1, "  Allocated Memory Size: %d\n", pstatus.info[i].sz);
+        printf(1, "  Stack Page: %d\n", pstatus.info[i].stacksz);
+        printf(1, "  Memory Limit: %d\n", pstatus.info[i].mlimit);
     }
 }
 
