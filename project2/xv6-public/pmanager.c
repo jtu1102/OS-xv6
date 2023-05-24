@@ -71,10 +71,9 @@ runlist(void)
     // print process info
     // 1. process name
     // 2. process pid
-    // 3. process stack page number -> 메인 스레드의 스택용 페이지 수
+    // 3. process stack page number -> 프로세스의 스택용 페이지 수, 스레드의 스택 페이지 수는 고려하지 않음
     // 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
     // 5. memory limit -> 모두 공유. 출력하면 됨
-    // todo: print format 예쁘게
     int i;
 
     process_status(&pstatus);
@@ -92,7 +91,7 @@ runkill(char *strpid)
 {
     int pid;
     
-    pid = atoi(strpid); // todo: atoi 실패 시??
+    pid = atoi(strpid);
     if (kill(pid) < 0)
         panic("kill error!");
     printf(1, "process %d successfully killed\n", pid);
@@ -108,9 +107,10 @@ runexec(char *path, char *strstacksize)
     argv[1] = 0;
     stacksize = atoi(strstacksize);
     if(fork1() == 0){
-        if(path == 0)
+        if(path == 0 || stacksize < 1 || exec2(path, argv, stacksize) < 0){
+            printf(1, "execute %s failed\n", path);
             exit();
-        exec2(path, argv, stacksize);
+        }
     }
 }
 

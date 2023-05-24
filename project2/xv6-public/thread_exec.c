@@ -4,13 +4,13 @@
 
 #define NUM_THREAD 5
 
-void *routine_exec(void *arg)
+void *thread_main(void *arg)
 {
   int val = (int)arg;
   printf(1, "Thread %d start\n", val);
   if (arg == 0) {
     sleep(100);
-    char *pname = "/helloworld";
+    char *pname = "/hello_thread";
     char *args[2] = {pname, 0};
     printf(1, "Executing...\n");
     exec(pname, args);
@@ -19,7 +19,7 @@ void *routine_exec(void *arg)
     sleep(200);
   }
   
-  printf(2, "This code shouldn't be executed!!\n");
+  printf(1, "This code shouldn't be executed!!\n");
   exit();
   return 0;
 }
@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
   int i;
   printf(1, "Thread exec test start\n");
   for (i = 0; i < NUM_THREAD; i++) {
-    thread_create(&thread[i], routine_exec, (void *)i);
+    thread_create(&thread[i], thread_main, (void *)i);
   }
   sleep(200);
-  printf(2, "This code shouldn't be executed!!\n");
+  printf(1, "This code shouldn't be executed!!\n");
   exit();
 }

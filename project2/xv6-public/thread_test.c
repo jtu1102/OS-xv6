@@ -2,33 +2,32 @@
 #include "stat.h"
 #include "user.h"
 
-#define NUM_THREAD 10
-#define PAGESZ 4096
+#define NUM_THREAD 5
 
-int global;
+int status;
 thread_t thread[NUM_THREAD];
-int expected[NUM_THREAD]; // expected retval
+int expected[NUM_THREAD];
 
-void *routine_basic(void *arg)
+void failed()
+{
+  printf(1, "Test failed!\n");
+  exit();
+}
+
+void *thread_basic(void *arg)
 {
   int val = (int)arg;
   printf(1, "Thread %d start\n", val);
   if (val == 1) {
     sleep(200);
-    global = 1;
+    status = 1;
   }
-  if (val == 2) {
-    printf(1, "tid 2 - i changed val to 1000\n");
-    val = 1000;
-    yield();
-  }
-  printf(1, "val: %d\n", val);
-  printf(1, "Thread %d end\n", (int)arg);
+  printf(1, "Thread %d end\n", val);
   thread_exit(arg);
   return 0;
 }
 
-void *routine_fork(void *arg)
+void *thread_fork(void *arg)
 {
   int val = (int)arg;
   int pid;
@@ -37,21 +36,21 @@ void *routine_fork(void *arg)
   pid = fork();
   if (pid < 0) {
     printf(1, "Fork error on thread %d\n", val);
-    exit();
+    failed();
   }
 
   if (pid == 0) {
     printf(1, "Child of thread %d start\n", val);
     sleep(100);
-    global = 3; // child process의 전역변수 메모리 영역은 부모 프로세스와 분리되어 있음
+    status = 3;
     printf(1, "Child of thread %d end\n", val);
     exit();
   }
   else {
-    global = 2;
-    if (wait() == -1) { // fork 1번 했으니 wait() 도 한번만 호출해도 됨
+    status = 2;
+    if (wait() == -1) {
       printf(1, "Thread %d lost their child\n", val);
-	  exit();
+      failed();
     }
   }
   printf(1, "Thread %d end\n", val);
@@ -63,32 +62,50 @@ int *ptr;
 
 void *thread_sbrk(void *arg)
 {
-  int i;
+  int val = (int)arg;
+  printf(1, "Thread %d start\n", val);
 
-  printf(1, "Thread %d start\n", (int)arg);
+  int i, j;
 
-  if ((int)arg == 0) {
-    ptr = (int *)malloc(PAGESZ * 16); // 16개 페이지 공간 할당 (4096 * 16)
-    printf(1,"malloc done\n");
-	sleep(100);
+  if (val == 0) {
+    ptr = (int *)malloc(65536);
+    sleep(100);
+    free(ptr);
+    ptr = 0;
   }
   else {
-    while (ptr == 0) // 첫번째 스레드에서 메모리 할당 해 줄 때까지 대기
+    while (ptr == 0)
       sleep(1);
-    for (i = 0; i < PAGESZ * 16 / 4; i++) // int는 4byte (65536 / 4 = 16384)
-      ptr[i] = 25; // 내나이 스물다섯..
+    for (i = 0; i < 16384; i++)
+      ptr[i] = val;
   }
+
+  while (ptr != 0)
+    sleep(1);
+
+  for (i = 0; i < 2000; i++) {
+    int *p = (int *)malloc(65536);
+    for (j = 0; j < 16384; j++)
+      p[j] = val;
+    for (j = 0; j < 16384; j++) {
+      if (p[j] != val) {
+        printf(1, "Thread %d found %d\n", val, p[j]);
+        failed();
+      }
+    }
+    free(p);
+  }
+
   thread_exit(arg);
   return 0;
 }
-
 void create_all(int n, void *(*entry)(void *))
 {
   int i;
   for (i = 0; i < n; i++) {
     if (thread_create(&thread[i], entry, (void *)i) != 0) {
       printf(1, "Error creating thread %d\n", i);
-      exit();
+      failed();
     }
   }
 }
@@ -99,11 +116,11 @@ void join_all(int n)
   for (i = 0; i < n; i++) {
     if (thread_join(thread[i], (void **)&retval) != 0) {
       printf(1, "Error joining thread %d\n", i);
-      exit();
+      failed();
     }
     if (retval != expected[i]) {
       printf(1, "Thread %d returned %d, but expected %d\n", i, retval, expected[i]);
-      exit();
+      failed();
     }
   }
 }
@@ -115,42 +132,35 @@ int main(int argc, char *argv[])
     expected[i] = i;
 
   printf(1, "Test 1: Basic test\n");
-  create_all(NUM_THREAD, routine_basic);
+  create_all(2, thread_basic);
   sleep(100);
-  printf(1, "main thread waiting for other threads...\n");
-  join_all(5);
-  if (global != 1) {
-    printf(1, "join returned before thread exit, or the address space is not properly shared\n");
-    exit();
+  printf(1, "Parent waiting for children...\n");
+  join_all(2);
+  if (status != 1) {
+    printf(1, "Join returned before thread exit, or the address space is not properly shared\n");
+    failed();
   }
   printf(1, "Test 1 passed\n\n");
 
   printf(1, "Test 2: Fork test\n");
-  create_all(NUM_THREAD, routine_fork);
+  create_all(NUM_THREAD, thread_fork);
   join_all(NUM_THREAD);
-  if (global != 2) {
-    if (global == 3) {
-      printf(1, "child process referenced parent's memory\n");
+  if (status != 2) {
+    if (status == 3) {
+      printf(1, "Child process referenced parent's memory\n");
     }
     else {
-      printf(1, "global expected 2, found %d\n", global);
+      printf(1, "Status expected 2, found %d\n", status);
     }
-    exit();
+    failed();
   }
   printf(1, "Test 2 passed\n\n");
-  
+
   printf(1, "Test 3: Sbrk test\n");
   create_all(NUM_THREAD, thread_sbrk);
   join_all(NUM_THREAD);
-  for(i = 0; i < PAGESZ * 16 / 4; i++){
-	if(ptr[i] != 25){
-		printf(1, "shared memory cannot accessable in all thread");
-		exit();
-	}
-  }
-  free(ptr);
-  ptr = 0;
   printf(1, "Test 3 passed\n\n");
 
+  printf(1, "All tests passed!\n");
   exit();
 }

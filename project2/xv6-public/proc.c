@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int nexttid = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -202,7 +203,6 @@ fork(void)
     return -1;
   }
   np->pid = nextpid++;
-  np->nexttid = 0;
 
   // Copy process state from proc.
   if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
@@ -215,6 +215,7 @@ fork(void)
   np->stacksz = curproc->stacksz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+  np->isThread = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -247,6 +248,7 @@ exit(void)
   struct proc *p;
   int fd;
 
+  thread_clear(curproc); // exit without joining
   if(curproc == initproc)
     panic("init exiting");
 
@@ -263,6 +265,7 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
+  // clear all thread
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
@@ -587,14 +590,14 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     nt->pid = curproc->pid;
     nt->pgdir = curproc->pgdir; // share text, data, heap memory with main thread
     nt->sz = curproc->sz;
-    nt->stacksz = 1;
+    nt->stacksz = curproc->stacksz;
     nt->parent = curproc->parent; // (?) thread의 부모 프로세스는 생성 프로세스의 부모 프로세스를 따라가기.. 어디서 생성되었는지는 pid를 보면 알 수 있으니까
     *nt->tf = *curproc->tf;
 
     nt->isThread = 1;
     nt->main = curproc;
     nt->retval = 0;
-    nt->tid = curproc->nexttid++;
+    nt->tid = nexttid++;
     
     nt->tf->eax = 0; // start_routine에서 알아서 처리 될 거니까 추가 안 해도 될듯.? 아 확신은 없다 근뎁
     
@@ -605,17 +608,15 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
     // allocate user stack
     sz = nt->sz;
-    if((sz = allocuvm(nt->pgdir, sz, sz + (curproc->stacksz)*PGSIZE)) == 0)
+    if((sz = allocuvm(nt->pgdir, sz, sz + (curproc->stacksz + 1)*PGSIZE)) == 0)
         return -1;
-    clearpteu(nt->pgdir, (char*)(sz - (curproc->stacksz)*PGSIZE));
+    clearpteu(nt->pgdir, (char*)(sz - (curproc->stacksz + 1)*PGSIZE));
     sp = sz;
     nt->sz = sz;
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->pid == curproc->pid){
-            p->nexttid = curproc->nexttid;
+        if(p->pid == curproc->pid)
             p->sz = sz;
-        }
     }
     release(&ptable.lock);
     
@@ -720,7 +721,6 @@ int thread_join(thread_t thread, void **retval)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
-        p->nexttid = 0;
         p->mlimit = 0;
         p->isThread = 0;
         p->main = 0;
@@ -749,47 +749,47 @@ thread_clear(struct proc *curproc)
   struct proc *p;
   int fd;
 
-  if(!curproc->nexttid)
-    return;
   // 스레드에서 exec가 호출된 경우
+  // 스레드보다 process가 먼저 exit 되는 경우
   if(curproc->isThread) {
     curproc->isThread = 0;
     // make original main thread (process) to thread
     curproc->main->isThread = 1;
     curproc->main = 0;
-    curproc->nexttid = 0;
   }
   // clear all threads
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == curproc->pid && p->isThread) {
+    if(p->pid == curproc->pid && p->isThread && p->state != UNUSED) {
       if(p == initproc)
         panic("init exiting");
-      
-      // Close all open files.
-      for(fd = 0; fd < NOFILE; fd++){
-        if(p->ofile[fd]){
-          fileclose(p->ofile[fd]);
-          p->ofile[fd] = 0;
+      if(p->state != ZOMBIE) {
+        // Close all open files.
+        for(fd = 0; fd < NOFILE; fd++){
+          if(p->ofile[fd]){
+            fileclose(p->ofile[fd]);
+            p->ofile[fd] = 0;
+          }
         }
+        begin_op();
+        iput(p->cwd);
+        end_op();
+        p->cwd = 0;
+        p->state = ZOMBIE;
       }
-      begin_op();
-      iput(p->cwd);
-      end_op();
-      p->cwd = 0;
-
-      kfree(p->kstack);
-      p->kstack = 0;
-      p->pid = 0;
-      p->parent = 0;
-      p->name[0] = 0;
-      p->killed = 0;
-      p->nexttid = 0;
-      p->mlimit = 0;
-      p->isThread = 0;
-      p->main = 0;
-      p->retval = 0;
-      p->tid = 0;
-      p->state = UNUSED;
+      if(p->state == ZOMBIE) {
+        kfree(p->kstack);
+        p->kstack = 0;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->mlimit = 0;
+        p->isThread = 0;
+        p->main = 0;
+        p->retval = 0;
+        p->tid = 0;
+        p->state = UNUSED;
+      }
       // sz의 경우 exec 안에서 재설정 되므로 갱신 필요 없음
     }
   }

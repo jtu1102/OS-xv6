@@ -49,7 +49,6 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  thread_t nexttid;            // Allocate tid - global in same pid
 
   int mlimit;                  // Process memory limitation
   int stacksz;                 // # of stack page
