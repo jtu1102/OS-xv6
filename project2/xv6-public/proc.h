@@ -64,6 +64,7 @@ struct proc {
 //   fixed-size stack
 //   expandable heap
 
+// process status
 struct ps {
   int active;         // # of running & runnable processes
   struct info {       // information of process

@@ -65,15 +65,15 @@ parsecmd(char *s, char **cmd)
         cmd[3][0] = 0;
 }
 
+// print process info
+// 1. process name
+// 2. process pid
+// 3. process stack page number -> 프로세스의 스택용 페이지 수, 스레드의 스택 페이지 수는 고려하지 않음
+// 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
+// 5. memory limit -> 모두 공유. 출력하면 됨
 void
 runlist(void)
 {
-    // print process info
-    // 1. process name
-    // 2. process pid
-    // 3. process stack page number -> 프로세스의 스택용 페이지 수, 스레드의 스택 페이지 수는 고려하지 않음
-    // 4. allocated memory size -> sz는 모든 스레드에서 같은 값으로 공유하도록 유지됨
-    // 5. memory limit -> 모두 공유. 출력하면 됨
     int i;
 
     process_status(&pstatus);
@@ -107,8 +107,8 @@ runexec(char *path, char *strstacksize)
     argv[1] = 0;
     stacksize = atoi(strstacksize);
     if(fork1() == 0){
-        if(path == 0 || stacksize < 1 || exec2(path, argv, stacksize) < 0){
-            printf(1, "execute %s failed\n", path);
+        if(path == 0 || exec2(path, argv, stacksize) < 0){
+            printf(2, "execute %s failed\n", path);
             exit();
         }
     }

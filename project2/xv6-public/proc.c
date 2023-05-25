@@ -15,7 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
-int nexttid = 0;
+thread_t nexttid = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -585,13 +585,13 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
     // Allocate thread
     if((nt = allocproc()) == 0){
-        return -1;
+      return -1;
     }
     nt->pid = curproc->pid;
     nt->pgdir = curproc->pgdir; // share text, data, heap memory with main thread
     nt->sz = curproc->sz;
     nt->stacksz = curproc->stacksz;
-    nt->parent = curproc->parent; // (?) thread의 부모 프로세스는 생성 프로세스의 부모 프로세스를 따라가기.. 어디서 생성되었는지는 pid를 보면 알 수 있으니까
+    nt->parent = curproc->parent; // thread의 부모 프로세스는 생성 프로세스의 부모 프로세스를 따라가기
     *nt->tf = *curproc->tf;
 
     nt->isThread = 1;
@@ -599,11 +599,11 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     nt->retval = 0;
     nt->tid = nexttid++;
     
-    nt->tf->eax = 0; // start_routine에서 알아서 처리 될 거니까 추가 안 해도 될듯.? 아 확신은 없다 근뎁
+    nt->tf->eax = 0;
     
     for(i = 0; i < NOFILE; i++)
-        if(curproc->ofile[i])
-            nt->ofile[i] = filedup(curproc->ofile[i]); // filedup, idup는 단순히 ref (reference 인듯?) 개수를 1씩 증가시켜주는 거니까.. 이렇게 해도 될듯
+      if(curproc->ofile[i])
+        nt->ofile[i] = filedup(curproc->ofile[i]);
     nt->cwd = idup(curproc->cwd);
 
     // allocate user stack
@@ -615,8 +615,8 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
     nt->sz = sz;
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->pid == curproc->pid)
-            p->sz = sz;
+      if(p->pid == curproc->pid)
+        p->sz = sz;
     }
     release(&ptable.lock);
     
@@ -626,13 +626,12 @@ thread_create(thread_t *thread, void *(*start_routine)(void *), void *arg)
 
     sp -= 2 * 4;
     if(copyout(nt->pgdir, sp, ustack, 2*4) < 0)
-        return -1;
+      return -1;
     nt->tf->esp = sp;
 
     safestrcpy(nt->name, curproc->name, sizeof(curproc->name));
 
-    nt->tf->eip = (uint)start_routine; // (?) allocproc에서 forkret 실행시키는거 따라함.. 잘 되는군
-
+    nt->tf->eip = (uint)start_routine;
     acquire(&ptable.lock);
     nt->state = RUNNABLE;
     release(&ptable.lock);
@@ -699,9 +698,6 @@ int thread_join(thread_t thread, void **retval)
   struct proc *curthread = myproc();
   
   acquire(&ptable.lock);
-  #ifdef DEBUG
-  cprintf("in join\n");
-  #endif
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
@@ -715,8 +711,6 @@ int thread_join(thread_t thread, void **retval)
         kfree(p->kstack);
         p->kstack = 0;
         // freevm(p->pgdir);
-        // stack 공간은 free 해 주어야 하는거 아닌가..?
-        // 아 어차피 메인 스레드 프로세스가 종료될 때 해결되겠구나..!
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
@@ -806,7 +800,7 @@ process_status(struct ps *s)
     if((p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING) && !p->isThread){
       s->info[i].sz = p->sz;
       s->info[i].pid = p->pid;
-      s->info[i].stacksz = p->stacksz; // sum of stack size = main thread stack size + # of thread (cuz each thread has 1 user stack)
+      s->info[i].stacksz = p->stacksz;
       s->info[i].mlimit = p->mlimit;
       safestrcpy(s->info[i].name, p->name, sizeof(s->info[i].name));
       i++;
