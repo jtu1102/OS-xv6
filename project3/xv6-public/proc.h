@@ -1,6 +1,6 @@
 // Per-CPU state
 struct cpu {
-  uchar apicid;                // Local APIC ID (cpu마다 주어지는 unique number)
+  uchar apicid;                // Local APIC ID
   struct context *scheduler;   // swtch() here to enter scheduler
   struct taskstate ts;         // Used by x86 to find stack for interrupt
   struct segdesc gdt[NSEGS];   // x86 global descriptor table

@@ -8,21 +8,20 @@
 #include "traps.h"
 #include "spinlock.h"
 
-// Interrupt descriptor table (shared by all CPUs). IDT
+// Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
 void
-tvinit(void) // initialize trap vector
+tvinit(void)
 {
   int i;
 
   for(i = 0; i < 256; i++)
     SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
   SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
-  SETGATE(idt[T_SAMPLE128], 1, SEG_KCODE<<3, vectors[T_SAMPLE128], DPL_USER);
 
   initlock(&tickslock, "time");
 }
@@ -49,7 +48,7 @@ trap(struct trapframe *tf)
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
-    if(cpuid() == 0){ // cpu id가 0인게 무슨 의미지?? 첫번째 cpu일때를 의미하는 듯. 근데 어차피 우린 cpu한개로 만드니까.. 항상 0!
+    if(cpuid() == 0){
       acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
@@ -76,11 +75,6 @@ trap(struct trapframe *tf)
   case T_IRQ0 + IRQ_SPURIOUS:
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
             cpuid(), tf->cs, tf->eip);
-    lapiceoi();
-    break;
-  
-  case T_SAMPLE128:
-    cprintf("user interrupt 128 called!\n");
     lapiceoi();
     break;
 

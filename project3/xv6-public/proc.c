@@ -355,7 +355,7 @@ scheduler(void)
   }
 }
 
-// Enter scheduler.  Must hold only ptable.lock : 스케줄러로 들어갑니다. ptable.lock만 걸려 있어야 함
+// Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
 // kernel thread, not this CPU. It should
@@ -377,7 +377,7 @@ sched(void)
   if(readeflags()&FL_IF)
     panic("sched interruptible");
   intena = mycpu()->intena;
-  swtch(&p->context, mycpu()->scheduler); // 프로세스에서 스케줄러로
+  swtch(&p->context, mycpu()->scheduler);
   mycpu()->intena = intena;
 }
 
@@ -386,8 +386,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE; //실행 중인 프로세스를 RUNNABLE 상태로 전환시킴
-  sched(); // switch to scheduler
+  myproc()->state = RUNNABLE;
+  sched();
   release(&ptable.lock);
 }
 
@@ -489,7 +489,7 @@ kill(int pid)
       if(p->state == SLEEPING)
         p->state = RUNNABLE;
       release(&ptable.lock);
-      return 0; // 프로세스를 exit (종료) 시키기 위해 return ! 정상종료: 0
+      return 0;
     }
   }
   release(&ptable.lock);
