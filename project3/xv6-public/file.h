@@ -23,6 +23,8 @@ struct inode {
   short nlink;
   uint size;
   uint addrs[NDIRECT+1];
+  uint D_addr;          // Double index block
+  uint T_addr;          // Triple index block
 };
 
 // table mapping major device number to

@@ -99,7 +99,7 @@ bread(uint dev, uint blockno)
   struct buf *b;
 
   b = bget(dev, blockno);
-  if((b->flags & B_VALID) == 0) {
+  if((b->flags & B_VALID) == 0) { // cache miss
     iderw(b);
   }
   return b;

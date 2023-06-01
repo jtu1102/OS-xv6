@@ -21,9 +21,11 @@ struct superblock {
   uint bmapstart;    // Block number of first free map block
 };
 
-#define NDIRECT 12
-#define NINDIRECT (BSIZE / sizeof(uint))
-#define MAXFILE (NDIRECT + NINDIRECT)
+#define NDIRECT 10 // 12 -> 10 sizeof(dinode)가 2의 제곱수여야 함
+#define NINDIRECT (BSIZE / sizeof(uint)) // 512 / 4 = 128
+#define NDBLINDIRECT ((NINDIRECT) * (NINDIRECT))
+#define NTRPLINDIRECT ((NINDIRECT) * (NINDIRECT) * (NINDIRECT))
+#define MAXFILE (NDIRECT + NINDIRECT + NDBLINDIRECT + NTRPLINDIRECT)    // 12 + 128 + 128*128 + 128*128*128 = 2,113,676
 
 // On-disk inode structure
 struct dinode {
@@ -33,6 +35,8 @@ struct dinode {
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
+  uint D_addr;          // Double index block
+  uint T_addr;          // Triple index block
 };
 
 // Inodes per block.
