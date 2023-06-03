@@ -255,7 +255,7 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if((type == T_FILE && ip->type == T_FILE) || type == T_SYM)
+    if((type == T_FILE && ip->type == T_FILE) || ip->type == T_SYM)
       return ip;
     iunlockput(ip);
     return 0;
@@ -316,6 +316,14 @@ sys_open(void)
       end_op();
       return -1;
     }
+  }
+  if(ip->type == T_SYM){
+    iunlockput(ip);
+    if((ip = namei(path)) == 0){
+      end_op();
+      return -1;
+    }
+    ilock(ip);
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
