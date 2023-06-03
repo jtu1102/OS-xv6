@@ -21,20 +21,17 @@ exec(char *path, char **argv)
 
   begin_op();
 
-  if((ip = namei(path)) == 0){
-    cprintf("0.....");
+  if((ip = namei(path, 1)) == 0){
     end_op();
     cprintf("exec: fail\n");
     return -1;
   }
-  cprintf("1...");
   ilock(ip);
   pgdir = 0;
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
-  cprintf("2...");
   if(elf.magic != ELF_MAGIC)
     goto bad;
 

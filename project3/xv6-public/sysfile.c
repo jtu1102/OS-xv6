@@ -125,7 +125,7 @@ sys_link(void)
     return -1;
 
   begin_op();
-  if((ip = namei(old)) == 0){
+  if((ip = namei(old, 1)) == 0){
     end_op();
     return -1;
   }
@@ -141,7 +141,7 @@ sys_link(void)
   iupdate(ip);
   iunlock(ip);
 
-  if((dp = nameiparent(new, name)) == 0)
+  if((dp = nameiparent(new, name, 1)) == 0)
     goto bad;
   cprintf("dp name: %s\n", name);
   ilock(dp);
@@ -194,7 +194,7 @@ sys_unlink(void)
     return -1;
 
   begin_op();
-  if((dp = nameiparent(path, name)) == 0){
+  if((dp = nameiparent(path, name, 1)) == 0){
     end_op();
     return -1;
   }
@@ -245,10 +245,11 @@ create(char *path, short type, short major, short minor)
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
-  // for debug
+#ifdef DEBUG
   if(type == T_SYM)
     cprintf("create: path: %s, type: %d\n", path, type);
-  if((dp = nameiparent(path, name)) == 0)
+#endif
+  if((dp = nameiparent(path, name, 1)) == 0)
     return 0;
   ilock(dp);
 
@@ -306,7 +307,7 @@ sys_open(void)
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
+    if((ip = namei(path, 1)) == 0){
       end_op();
       return -1;
     }
@@ -319,11 +320,61 @@ sys_open(void)
   }
   if(ip->type == T_SYM){
     iunlockput(ip);
-    if((ip = namei(path)) == 0){
+    if((ip = namei(path, 1)) == 0){
       end_op();
       return -1;
     }
     ilock(ip);
+  }
+
+  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+    if(f)
+      fileclose(f);
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+  iunlock(ip);
+  end_op();
+
+  f->type = FD_INODE;
+  f->ip = ip;
+  f->off = 0;
+  f->readable = !(omode & O_WRONLY);
+  f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+  return fd;
+}
+
+int
+sys_statopen(void)
+{
+  char *path;
+  int fd, omode;
+  struct file *f;
+  struct inode *ip;
+
+  if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
+    return -1;
+
+  begin_op();
+
+  if(omode & O_CREATE){ // create a new file
+    ip = create(path, T_FILE, 0, 0);
+    if(ip == 0){
+      end_op();
+      return -1;
+    }
+  } else {
+    if((ip = namei(path, 0)) == 0){
+      end_op();
+      return -1;
+    }
+    ilock(ip);
+    if(ip->type == T_DIR && omode != O_RDONLY){
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
   }
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
@@ -388,7 +439,7 @@ sys_chdir(void)
   struct proc *curproc = myproc();
   
   begin_op();
-  if(argstr(0, &path) < 0 || (ip = namei(path)) == 0){
+  if(argstr(0, &path) < 0 || (ip = namei(path, 1)) == 0){
     end_op();
     return -1;
   }
@@ -466,7 +517,7 @@ sys_slink(void)
     return -1;
 
   begin_op();
-  if((ip = namei(old)) == 0){
+  if((ip = namei(old, 1)) == 0){
     end_op();
     return -1;
   }
@@ -474,7 +525,6 @@ sys_slink(void)
     goto bad;
   safestrcpy(lp->slink, old, 16);
   iupdate(lp);
-  // lp->addrs = ip->addrs;
   
   if((f = filealloc()) == 0){
     if(f)

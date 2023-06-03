@@ -21,7 +21,7 @@ struct superblock {
   uint bmapstart;    // Block number of first free map block
 };
 
-#define NDIRECT 6 // 12 -> 8 : 2 for double, triple indirect, 4 for slink path sizeof(dinode)가 2의 제곱수여야 함
+#define NDIRECT 6 // 12 -> 6 : 2 for double, triple indirect, 4 for slink path. sizeof(dinode)가 2의 제곱수여야 함
 #define NINDIRECT (BSIZE / sizeof(uint)) // 512 / 4 = 128
 #define NDBLINDIRECT ((NINDIRECT) * (NINDIRECT))
 #define NTRPLINDIRECT ((NINDIRECT) * (NINDIRECT) * (NINDIRECT))
@@ -35,7 +35,6 @@ struct dinode {
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
-  // uint addrs[10+1];   // Data block addresses
   uint D_addr;          // Double index block
   uint T_addr;          // Triple index block
   char slink[16];       // slink path (original file path)

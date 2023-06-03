@@ -722,7 +722,7 @@ skipelem(char *path, char *name)
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
 static struct inode*
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int redirection)
 {
   struct inode *ip, *next;
 
@@ -730,14 +730,14 @@ namex(char *path, int nameiparent, char *name)
     ip = iget(ROOTDEV, ROOTINO);
   else // relative path
     ip = idup(myproc()->cwd);
+#ifdef DEBUG
   cprintf("namex path: %s\n", path);
-  // if(ip->type == T_SYM){
-  //   cprintf("next slink (first): %s\n", ip->slink);
-  //   return namex(ip->slink, nameiparent, name);
-  // }
+#endif
   while((path = skipelem(path, name)) != 0){
+#ifdef DEBUG
     cprintf("inside loop path: %s\n", path);
     cprintf("inside loop name: %s\n", name);
+#endif
     ilock(ip);
     if(ip->type != T_DIR){
       iunlockput(ip);
@@ -754,15 +754,15 @@ namex(char *path, int nameiparent, char *name)
     }
     iunlock(ip);
     ilock(next);
-    if(next->type == T_SYM){
+    if(redirection && next->type == T_SYM){
+#ifdef DEBUG
       cprintf("next slink: %s\n", next->slink);
-      // readi(next, path, 0, DIRSIZ);
+#endif
       iunlockput(next);
-      next = namex(next->slink, nameiparent, name);
+      next = namex(next->slink, nameiparent, name, redirection);
     }
     else
       iunlock(next);
-    // iunlockput(ip);
     iput(ip);
     ip = next;
   }
@@ -770,22 +770,18 @@ namex(char *path, int nameiparent, char *name)
     iput(ip);
     return 0;
   }
-  // if(ip->type == T_SYM){
-  //   cprintf("next slink (first): %s\n", ip->slink);
-  //   return namex(ip->slink, nameiparent, name);
-  // }
   return ip;
 }
 
 struct inode*
-namei(char *path)
+namei(char *path, int redirection)
 {
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  return namex(path, 0, name, redirection);
 }
 
 struct inode*
-nameiparent(char *path, char *name)
+nameiparent(char *path, char *name, int redirection)
 {
-  return namex(path, 1, name);
+  return namex(path, 1, name, redirection);
 }
