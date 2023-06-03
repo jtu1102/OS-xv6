@@ -143,8 +143,9 @@ sys_link(void)
 
   if((dp = nameiparent(new, name)) == 0)
     goto bad;
+  cprintf("dp name: %s\n", name);
   ilock(dp);
-  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){ // create도 dirlink에서..?
     iunlockput(dp);
     goto bad;
   }
@@ -244,6 +245,9 @@ create(char *path, short type, short major, short minor)
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
+  // for debug
+  if(type == T_SYM)
+    cprintf("create: path: %s, type: %d\n", path, type);
   if((dp = nameiparent(path, name)) == 0)
     return 0;
   ilock(dp);
@@ -251,7 +255,7 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && ip->type == T_FILE)
+    if((type == T_FILE && ip->type == T_FILE) || type == T_SYM)
       return ip;
     iunlockput(ip);
     return 0;
@@ -442,3 +446,59 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+int
+sys_slink(void)
+{
+  char *new, *old;
+  struct inode *lp, *ip;
+  struct file *f;
+
+  if(argstr(0, &old) < 0 || argstr(1, &new) < 0)
+    return -1;
+
+  begin_op();
+  if((ip = namei(old)) == 0){
+    end_op();
+    return -1;
+  }
+  if((lp = create(new, T_SYM, ip->major, ip->minor)) == 0)
+    goto bad;
+  safestrcpy(lp->slink, old, 16);
+  iupdate(lp);
+  // lp->addrs = ip->addrs;
+  
+  if((f = filealloc()) == 0){
+    if(f)
+      fileclose(f);
+    iunlockput(lp);
+    end_op();
+    return -1;
+  }
+  iunlock(lp);
+  end_op();
+
+  f->type = FD_INODE;
+  f->ip = lp;
+  f->off = 0;
+  f->readable = 1;
+  f->writable = 1;
+  
+  return 0;
+
+bad:
+  end_op();
+  return -1;
+}
+
+// int
+// sys_slinkread(void)
+// {
+//   struct file *f;
+//   int n;
+//   char *p;
+
+//   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n))
+//     return -1;
+//   return slinkread(f, p, n);
+// }

@@ -155,3 +155,12 @@ filewrite(struct file *f, char *addr, int n)
   panic("filewrite");
 }
 
+// int
+// slinkread(struct file *f, char *addr, int n)
+// {
+//   int r;
+
+//   if(f->readable == 0)
+//     return -1;
+  
+// }

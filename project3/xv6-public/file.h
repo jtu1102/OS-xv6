@@ -16,6 +16,7 @@ struct inode {
   int ref;            // Reference count
   struct sleeplock lock; // protects everything below here
   int valid;          // inode has been read from disk?
+  // char slink[DIRSIZ]; // slink path (original file path)
 
   short type;         // copy of disk inode
   short major;
@@ -25,6 +26,7 @@ struct inode {
   uint addrs[NDIRECT+1];
   uint D_addr;          // Double index block
   uint T_addr;          // Triple index block
+  char slink[DIRSIZ + 2];   // slink path (original file path)
 };
 
 // table mapping major device number to

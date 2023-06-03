@@ -230,6 +230,9 @@ iupdate(struct inode *ip)
   dip->minor = ip->minor;
   dip->nlink = ip->nlink;
   dip->size = ip->size;
+  dip->D_addr = ip->D_addr;
+  dip->T_addr = ip->T_addr;
+  memmove(dip->slink, ip->slink, sizeof(ip->slink));
   memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
   log_write(bp);
   brelse(bp);
@@ -303,6 +306,7 @@ ilock(struct inode *ip)
     ip->minor = dip->minor;
     ip->nlink = dip->nlink;
     ip->size = dip->size;
+    memmove(ip->slink, dip->slink, sizeof(ip->slink));
     memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
     brelse(bp);
     ip->valid = 1;
@@ -317,7 +321,6 @@ iunlock(struct inode *ip)
 {
   if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
     panic("iunlock");
-
   releasesleep(&ip->lock);
 }
 
@@ -727,8 +730,14 @@ namex(char *path, int nameiparent, char *name)
     ip = iget(ROOTDEV, ROOTINO);
   else // relative path
     ip = idup(myproc()->cwd);
-
+  cprintf("namex path: %s\n", path);
+  // if(ip->type == T_SYM){
+  //   cprintf("next slink (first): %s\n", ip->slink);
+  //   return namex(ip->slink, nameiparent, name);
+  // }
   while((path = skipelem(path, name)) != 0){
+    cprintf("inside loop path: %s\n", path);
+    cprintf("inside loop name: %s\n", name);
     ilock(ip);
     if(ip->type != T_DIR){
       iunlockput(ip);
@@ -743,13 +752,28 @@ namex(char *path, int nameiparent, char *name)
       iunlockput(ip);
       return 0;
     }
-    iunlockput(ip);
+    iunlock(ip);
+    ilock(next);
+    if(next->type == T_SYM){
+      cprintf("next slink: %s\n", next->slink);
+      // readi(next, path, 0, DIRSIZ);
+      iunlockput(next);
+      next = namex(next->slink, nameiparent, name);
+    }
+    else
+      iunlock(next);
+    // iunlockput(ip);
+    iput(ip);
     ip = next;
   }
   if(nameiparent){
     iput(ip);
     return 0;
   }
+  // if(ip->type == T_SYM){
+  //   cprintf("next slink (first): %s\n", ip->slink);
+  //   return namex(ip->slink, nameiparent, name);
+  // }
   return ip;
 }
 
