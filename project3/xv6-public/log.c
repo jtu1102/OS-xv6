@@ -48,7 +48,7 @@ struct log {
 struct log log;
 
 static void recover_from_log(void);
-static void commit();
+static int commit();
 
 void
 initlog(int dev)
@@ -60,7 +60,7 @@ initlog(int dev)
   initlock(&log.lock, "log");
   readsb(dev, &sb);
   log.start = sb.logstart;
-  log.size = sb.nlog;
+  log.size = sb.nlog; // number of log block
   log.dev = dev;
   recover_from_log();
 }
@@ -127,9 +127,9 @@ begin_op(void)
 {
   acquire(&log.lock);
   while(1){
-    if(log.committing){
+    if(log.committing){ // 다른 트랜잭션에서 log commit 작업 중인 경우
       sleep(&log, &log.lock);
-    } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
+    } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){ // 감당할 수 있는 트랜잭션 수를 초과한 경우 (로그 쓸 공간이 없음)
       // this op might exhaust log space; wait for commit.
       sleep(&log, &log.lock);
     } else {
@@ -151,25 +151,27 @@ end_op(void)
   log.outstanding -= 1;
   if(log.committing)
     panic("log.committing");
-  if(log.outstanding == 0){
-    do_commit = 1;
-    log.committing = 1;
-  } else {
+  // if(log.outstanding == 0){
+  //   do_commit = 1;
+  //   log.committing = 1;
+  // } else {
+  if(log.outstanding != 0){
     // begin_op() may be waiting for log space,
     // and decrementing log.outstanding has decreased
     // the amount of reserved space.
     wakeup(&log);
   }
+  if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
+    #ifdef DEBUG
+    cprintf("no buffer (log space) -> go commit");
+    #endif
+    do_commit = 1;
+    log.committing = 1;
+  }
   release(&log.lock);
 
   if(do_commit){
-    // call commit w/o holding locks, since not allowed
-    // to sleep with locks.
-    commit();
-    acquire(&log.lock);
-    log.committing = 0;
-    wakeup(&log);
-    release(&log.lock);
+    sync();
   }
 }
 
@@ -189,16 +191,21 @@ write_log(void)
   }
 }
 
-static void
-commit()
+static int
+commit() // 리턴값 수정해서 
 {
+  int nblock;
+
   if (log.lh.n > 0) {
+    nblock = log.lh.n;
     write_log();     // Write modified blocks from cache to log
     write_head();    // Write header to disk -- the real commit
     install_trans(); // Now install writes to home locations
     log.lh.n = 0;
     write_head();    // Erase the transaction from the log
+    return nblock;
   }
+  return -1; 
 }
 
 // Caller has modified b->data and is done with the buffer.
@@ -232,3 +239,19 @@ log_write(struct buf *b)
   release(&log.lock);
 }
 
+int
+sync(void)
+{
+    // call commit w/o holding locks, since not allowed
+    // to sleep with locks.
+    int nblock;
+
+    if (log.committing == 0)
+      log.committing = 1;
+    nblock = commit();
+    acquire(&log.lock);
+    log.committing = 0;
+    wakeup(&log);
+    release(&log.lock);
+    return nblock;
+}

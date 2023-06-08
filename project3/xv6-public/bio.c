@@ -116,7 +116,7 @@ bwrite(struct buf *b)
 }
 
 // Release a locked buffer.
-// Move to the head of the MRU list.
+// Move to the head of the MRU list. 가장 최근에 사용했으므로 맨 앞으로 이동
 void
 brelse(struct buf *b)
 {

@@ -159,7 +159,7 @@ iderw(struct buf *b)
     idestart(b);
 
   // Wait for request to finish.
-  while((b->flags & (B_VALID|B_DIRTY)) != B_VALID){
+  while((b->flags & (B_VALID|B_DIRTY)) != B_VALID){ // B_VALID가 될 때까지 sleep
     sleep(b, &idelock);
   }
 

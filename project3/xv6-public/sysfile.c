@@ -549,14 +549,8 @@ bad:
   return -1;
 }
 
-// int
-// sys_slinkread(void)
-// {
-//   struct file *f;
-//   int n;
-//   char *p;
-
-//   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n))
-//     return -1;
-//   return slinkread(f, p, n);
-// }
+int
+sys_sync(void)
+{
+  return sync();
+}

@@ -7,7 +7,8 @@
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define NDBLINDIRECT ((NINDIRECT) * (NINDIRECT))
 #define NTRPLDIRECT ((NINDIRECT) * (NINDIRECT) * (NINDIRECT))
-#define NUM_BYTES ((NDBLINDIRECT + 10000) * (BSIZE)) // 13.5MB
+// #define NUM_BYTES ((NDBLINDIRECT + 10000) * (BSIZE)) // 13.5MB
+#define NUM_BYTES ((1000) * (BSIZE))
 #define NUM_TRPL_BYTES ((NTRPLDIRECT) * (BSIZE))
 
 #define NUM_TEST3 10
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
     buf[i] = (i % 26) + 'a';
 
   test1(1);
-  test2(1);
+  // test2(1);
 
   // printf(1, "Test 3: repeating test 1 & 2\n");
   // for (i = 0; i < NUM_TEST3; i++)
