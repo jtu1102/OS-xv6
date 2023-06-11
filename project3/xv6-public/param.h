@@ -10,5 +10,4 @@
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache ->sync 시 확인
-#define FSSIZE       2500000  // size of file system in blocks 
-// todo: FSSIZE 키우기
+#define FSSIZE       2200000  // size of file system in blocks 
