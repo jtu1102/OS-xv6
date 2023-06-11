@@ -151,10 +151,6 @@ end_op(void)
   log.outstanding -= 1;
   if(log.committing)
     panic("log.committing");
-  // if(log.outstanding == 0){
-  //   do_commit = 1;
-  //   log.committing = 1;
-  // } else {
   if(log.outstanding != 0){
     // begin_op() may be waiting for log space,
     // and decrementing log.outstanding has decreased

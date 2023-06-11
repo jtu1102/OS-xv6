@@ -510,34 +510,30 @@ int
 sys_slink(void)
 {
   char *new, *old;
-  struct inode *lp, *ip;
+  struct inode *ip;
   struct file *f;
 
   if(argstr(0, &old) < 0 || argstr(1, &new) < 0)
     return -1;
 
   begin_op();
-  if((ip = namei(old, 1)) == 0){
-    end_op();
-    return -1;
-  }
-  if((lp = create(new, T_SYM, ip->major, ip->minor)) == 0)
+  if((ip = create(new, T_SYM, 0, 0)) == 0)
     goto bad;
-  safestrcpy(lp->slink, old, 16);
-  iupdate(lp);
+  safestrcpy(ip->slink, old, 16);
+  iupdate(ip);
   
   if((f = filealloc()) == 0){
     if(f)
       fileclose(f);
-    iunlockput(lp);
+    iunlockput(ip);
     end_op();
     return -1;
   }
-  iunlock(lp);
+  iunlock(ip);
   end_op();
 
   f->type = FD_INODE;
-  f->ip = lp;
+  f->ip = ip;
   f->off = 0;
   f->readable = 1;
   f->writable = 1;
