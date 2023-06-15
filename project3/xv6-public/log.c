@@ -157,7 +157,7 @@ end_op(void)
     // the amount of reserved space.
     wakeup(&log);
   }
-  if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
+  else if(log.lh.n + MAXOPBLOCKS > LOGSIZE){
     #ifdef DEBUG
     cprintf("no buffer (log space) -> go commit");
     #endif
