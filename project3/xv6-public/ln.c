@@ -17,5 +17,6 @@ main(int argc, char *argv[])
     if(slink(argv[2], argv[3]) < 0)
       printf(2, "symbolic link %s %s: failed\n", argv[2], argv[3]);
   }
+  sync();
   exit();
 }

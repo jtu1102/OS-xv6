@@ -755,9 +755,6 @@ namex(char *path, int nameiparent, char *name, int redirection)
     iunlock(ip);
     ilock(next);
     if(redirection && next->type == T_SYM){
-#ifdef DEBUG
-      cprintf("next slink: %s\n", next->slink);
-#endif
       iunlockput(next);
       next = namex(next->slink, nameiparent, name, redirection);
     }

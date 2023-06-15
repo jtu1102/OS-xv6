@@ -14,6 +14,8 @@
 
 char buf[NUM_BYTES], buf1[NUM_BYTES1], buf2[NUM_BYTES2];
 char filename[16] = "test.txt";
+char filename2[16] = "test2.txt";
+char filename3[16] = "test3.txt";
 
 void failed(const char *msg)
 {
@@ -42,7 +44,7 @@ void test2()
   int fd;
 
   printf(1, "Test 2: Write %d bytes\n", NUM_BYTES1);
-  fd = open(filename, O_CREATE | O_WRONLY);
+  fd = open(filename2, O_CREATE | O_WRONLY);
   if (fd < 0)
     failed("File open error\n");
   if (write(fd, buf1, NUM_BYTES1) < 0)
@@ -57,7 +59,7 @@ void test3()
   int fd;
 
   printf(1, "Test 3: Write %d bytes\n", NUM_BYTES2);
-  fd = open(filename, O_CREATE | O_WRONLY);
+  fd = open(filename3, O_CREATE | O_WRONLY);
   if (fd < 0)
     failed("File open error\n");
   if (write(fd, buf2, NUM_BYTES2) < 0)
