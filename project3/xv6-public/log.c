@@ -188,7 +188,7 @@ write_log(void)
 }
 
 static int
-commit() // 리턴값 수정해서 
+commit()
 {
   int nblock;
 
